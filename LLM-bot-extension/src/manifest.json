@@ -1,0 +1,13 @@
+{
+    "name": "GitHub_LLM_Bot",
+    "version": "1.0.0",
+    "description": "Bot assistant pour la revue de code avec ChatGPT",
+    "manifest_version": 3,
+    "action":{
+        "default_popup": "index.html",
+        "default_title": "GitHub_LLM_Bot"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self'; object-src 'self'; script-src-elem 'self' 'unsafe-inline' https://localhost/;"
+    }
+}
