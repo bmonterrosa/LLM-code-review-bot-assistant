@@ -11,43 +11,48 @@
 </head>
 
 <body>
-    <h1>GitHub LLM Bot</h1>
-    <div class="suggestion_container">
-        <label for="commentInputLabel">Texte :</label>
-        <br>
-        <textarea id="commentInputText">This sucks!</textarea>
-        <br>
-        <div>
-            <p>Suggestions:</p>
-            <ol>
-                <li>
-                    <div class="number">1.</div>
-                    <div class="suggestion_text">
-                        <span>Sucks -> I think there's reason for improvement</span>
-                    </div>
-                    <div class="suggestion_button">
-                        <button class="applyButton" data-suggestion="I think there's reason for improvement">Apply</button>
-                    </div>
-                </li>
-                <li>
-                    <div class="number">2.</div>
-                    <div class="suggestion_text">
-                        <span> Horrible -> Could be better in some areas </span>
-                    </div>
-                    <div class="suggestion_button">
-                        <button class="applyButton" data-suggestion="Could be better in some areas">Apply</button>
-                    </div>
-                </li>
-            </ol>
+    <div id="message">
+        This extension only works on GitHub.
+    </div>
+    <div id="content" style="display: none;">
+        <h1>GitHub LLM Bot</h1>
+        <div class="suggestion_container">
+            <label for="commentInputLabel">Texte :</label>
+            <br>
+            <textarea id="commentInputText">This sucks!</textarea>
+            <br>
+            <div>
+                <p>Suggestions:</p>
+                <ol>
+                    <li>
+                        <div class="number">1.</div>
+                        <div class="suggestion_text">
+                            <span>Sucks -> I think there's reason for improvement</span>
+                        </div>
+                        <div class="suggestion_button">
+                            <button class="applyButton" data-suggestion="I think there's reason for improvement">Apply</button>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="number">2.</div>
+                        <div class="suggestion_text">
+                            <span> Horrible -> Could be better in some areas </span>
+                        </div>
+                        <div class="suggestion_button">
+                            <button class="applyButton" data-suggestion="Could be better in some areas">Apply</button>
+                        </div>
+                    </li>
+                </ol>
+            </div>
+        </div>    
+        <div class="preview_container">
+            <h3>Preview :</h3>
+            <div class="preview">
+                <p id="previewContent">I think there's reason for improvement</p>    
+            </div>
+            <button class="preview_button" id="acceptSuggestion">Accept</button>
+            <button class="preview_button" id="copySuggestion">Copy</button>
         </div>
-    </div>    
-    <div class="preview_container">
-        <h3>Preview :</h3>
-        <div class="preview">
-            <p id="previewContent">I think there's reason for improvement</p>    
-        </div>
-        <button class="preview_button" id="acceptSuggestion">Accept</button>
-        <button class="preview_button" id="copySuggestion">Copy</button>
     </div>
     <script src="script.js"></script>
 </body>

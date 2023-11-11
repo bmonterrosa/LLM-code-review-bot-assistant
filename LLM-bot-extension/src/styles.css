@@ -1,7 +1,8 @@
 body{
     font-family: Arial, sans-serif;
     padding: 20px;
-    background-color: #f9f9f9;
+    background-color: #333;
+    color: white;
     width:350px;
 }
 /*Suggestion Section*/
@@ -67,3 +68,31 @@ button{
     border-radius: 4px;
     cursor: pointer;
 }
+
+#message {
+    display: none;
+    font-size: 16px;
+    padding: 10px;
+    background-color: #333;
+    color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    text-align: center;
+}
+
+#LLM_Icon {
+    position: absolute;
+    z-index: 1000;
+}
+
+#popup-llm {
+    width: 600px;
+    height: 300px;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
