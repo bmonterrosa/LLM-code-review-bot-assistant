@@ -85,14 +85,12 @@ function attachIconEvent(icon){
     icon.onclick = function(event) {
         event.stopPropagation();
         console.log("Icon was clicked!");
-        
         icon.onmouseover = function() {
             this.style.transform = "translateY(-10%) scale(1.1)";
         };
         icon.onmouseout = function() {
             this.style.transform = "translateY(-10%) scale(1)";
         };
-        
         const popup = document.getElementById('popup-llm');
         if (popup.style.display === 'none') {
             popup.className = "js-previewable-comment-form write-selected Box CommentBox";    
@@ -108,6 +106,7 @@ function setupNav(){
     checkIcon();
     attachTextAreaEvent();
     attachCopyEvent();
+    updateIconVisibility();
 }
 
 window.addEventListener('popstate',setupNav);
@@ -143,7 +142,36 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error("No tabs were found.");
         }
     });
+
+    document.getElementById('viewTab').addEventListener('click', function () {
+        openTab('View');
+    });
+
+    document.getElementById('settingsTab').addEventListener('click', function () {
+        openTab('Settings');
+    });
+
+    openTab('View');
+
+    if(localStorage.getItem('toggleState') === "checked"){
+        console.log("checked");
+        document.getElementById("toggleExtension").checked = true;
+    }
 });
+
+function openTab(tabName) {
+    var i, tabcontent, tablinks;
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("active");
+    }
+    document.getElementById(tabName).style.display = "block";
+    document.getElementById(tabName.toLowerCase() + 'Tab').classList.add("active");
+}
 
 function copyToClipboard() {
     const text = document.getElementById('llm-response').innerText;
@@ -186,6 +214,44 @@ function updateTextArea(input){
         
 }
 
+function updateIconVisibility() {
+    var icon = document.getElementById("LLM_Icon");
+    if(icon){
+        if (localStorage.getItem('toggleState') === "checked") {
+            icon.style.display = 'block'; 
+        } else {
+            icon.style.display = 'none';
+        }
+    }
+}
+
+var toggleSwitch = document.getElementById('toggleExtension');
+
+if(toggleSwitch){
+    // if (localStorage.getItem('toggleState') === 'checked') {
+    //     toggleSwitch.checked = true;
+    // } else {
+    //     toggleSwitch.checked = false;
+    // }
+    toggleSwitch.addEventListener('change', function() {
+        chrome.runtime.sendMessage({
+            from: 'popup',
+            subject: 'toggleState',
+            toggleState: toggleSwitch.checked
+        });
+    });
+}
+
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    let icon = document.getElementById('LLM_Icon');
+    if (icon) {
+        if(request.toggleState == true || request.toggleState == false){
+            icon.style.display = request.toggleState ? 'block' : 'none';
+            request.toggleState ? localStorage.setItem('toggleState', 'checked'):localStorage.setItem('toggleState', 'not_checked');
+            updateIconVisibility(); 
+        }
+    }
+});
 // document.addEventListener('DOMContentLoaded', function() {
 //     /*Toggle Apply and Undo button*/
 //     function toggleButton(buttonElement) {

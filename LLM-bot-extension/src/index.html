@@ -15,43 +15,29 @@
         This extension only works on GitHub.
     </div>
     <div id="content" style="display: none;">
-        <h1>GitHub LLM Bot</h1>
-        <div class="suggestion_container">
-            <label for="commentInputLabel">Texte :</label>
-            <br>
-            <textarea id="commentInputText">This sucks!</textarea>
-            <br>
+        <div class="tab">
+            <button class="tablinks" id="viewTab">View</button>
+            <button class="tablinks" id="settingsTab">Settings</button>
+        </div>
+        <div id="View" class="tabcontent">
+            <h1>GitHub LLM Bot</h1>
             <div>
-                <p>Suggestions:</p>
-                <ol>
-                    <li>
-                        <div class="number">1.</div>
-                        <div class="suggestion_text">
-                            <span>Sucks -> I think there's reason for improvement</span>
-                        </div>
-                        <div class="suggestion_button">
-                            <button class="applyButton" data-suggestion="I think there's reason for improvement">Apply</button>
-                        </div>
-                    </li>
-                    <li>
-                        <div class="number">2.</div>
-                        <div class="suggestion_text">
-                            <span> Horrible -> Could be better in some areas </span>
-                        </div>
-                        <div class="suggestion_button">
-                            <button class="applyButton" data-suggestion="Could be better in some areas">Apply</button>
-                        </div>
-                    </li>
-                </ol>
+                <span>
+                    Enable/Disable Extension
+                </span>
+                <label class="switch">
+                    <input type="checkbox" id="toggleExtension" checked>
+                    <span class="slider round"></span>
+                </label>
             </div>
-        </div>    
-        <div class="preview_container">
-            <h3>Preview :</h3>
-            <div class="preview">
-                <p id="previewContent">I think there's reason for improvement</p>    
+        </div>
+        <div id="Settings" class="tabcontent">
+            <h3>Settings</h3>
+            <div>
+                <label>LLM used</label>
+                </br>
+                <input id="LLM_API" type="text" placeholder="Default">
             </div>
-            <button class="preview_button" id="acceptSuggestion">Accept</button>
-            <button class="preview_button" id="copySuggestion">Copy</button>
         </div>
     </div>
     <script src="script.js"></script>

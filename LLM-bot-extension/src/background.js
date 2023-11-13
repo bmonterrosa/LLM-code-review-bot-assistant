@@ -10,8 +10,14 @@ function checkCurrentTabUrl() {
     });
 }
 
-try {
-    setInterval(checkCurrentTabUrl, 5000);
-} catch (error) {
-    console.log(error);
-}
+setInterval(checkCurrentTabUrl, 5000);
+
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    if (request.from === 'popup' && request.subject === 'toggleState') {
+        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+            if (tabs.length > 0) {
+                chrome.tabs.sendMessage(tabs[0].id, {toggleState: request.toggleState});
+            }
+        });
+    }
+});
