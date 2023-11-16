@@ -42,7 +42,7 @@ const popupHTML = `
     </div>
 `;
 
-function addIconOverCommentBox(){
+async function addIconOverCommentBox(){
     let textarea = document.getElementById("new_comment_field");
     if(textarea){
         try {
@@ -75,6 +75,7 @@ function addIconOverCommentBox(){
 
             textarea.parentElement.style.position = "relative";
             textarea.parentElement.appendChild(icon);
+            updateIconVisibility();
         } catch (error) {
             console.log(error)
         }
@@ -99,6 +100,7 @@ function attachIconEvent(icon){
             popup.style.display = 'none';
         }
     };
+    updateIconVisibility();
 }
 
 function setupNav(){
@@ -119,14 +121,15 @@ if (document.readyState === 'loading') {
     setupNav();
 }
 
-chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-    if (message.action === "githubPage") {
-        if(document.body.contains(document.getElementById("new_comment_field"))){
-            //console.log("in pull page");            
-        }
-    }
-});
+// chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+//     if (message.action === "githubPage") {
+//         if(document.body.contains(document.getElementById("new_comment_field"))){
+//             //console.log("in pull page");            
+//         }
+//     }
+// });
 
+//Popup eventListener
 document.addEventListener('DOMContentLoaded', function() {
     updateTextArea();
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
@@ -153,12 +156,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     openTab('View');
 
-    if(localStorage.getItem('toggleState') === "checked"){
-        console.log("checked");
-        document.getElementById("toggleExtension").checked = true;
-    }
+    addStatusToggle();
+    updateIconVisibility();
 });
 
+async function addStatusToggle(){
+    let lswitch = document.getElementById('enableSwitch');
+    let currrentState = "";
+    try {
+        currrentState = await getToggleState();
+    } catch (error) {
+        console.log("Error:",message);
+    }
+    let toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.id = "toggleExtension";
+    
+    let slider = document.createElement("span");
+    slider.classList = "slider round";
+
+    if (lswitch) {
+        if (currrentState === "checked") {
+            toggle.checked = true;
+        } else {
+            toggle.checked = false;
+        }    
+        lswitch.appendChild(toggle);
+        lswitch.appendChild(slider);
+        toggle.addEventListener('change', function() {
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleState',
+                toggleState: toggle.checked
+            });
+        });
+    }
+}
+
+//Function pour changer le contenu de l'extension
 function openTab(tabName) {
     var i, tabcontent, tablinks;
     tabcontent = document.getElementsByClassName("tabcontent");
@@ -173,6 +208,7 @@ function openTab(tabName) {
     document.getElementById(tabName.toLowerCase() + 'Tab').classList.add("active");
 }
 
+//Function pour copier le texte
 function copyToClipboard() {
     const text = document.getElementById('llm-response').innerText;
     if(text){
@@ -182,6 +218,7 @@ function copyToClipboard() {
     }
 }
 
+//Add event listener sur le bouton de copy
 function attachCopyEvent(){
     if(document.getElementById("copySuggestion")){
         document.addEventListener('click', function(event) {
@@ -193,6 +230,7 @@ function attachCopyEvent(){
     }
 }
 
+//Add event listener sur le texte area
 function attachTextAreaEvent(){
     let textarea = document.getElementById("new_comment_field");
     let resBox = document.getElementById("llm-response")
@@ -214,10 +252,29 @@ function updateTextArea(input){
         
 }
 
-function updateIconVisibility() {
+function getToggleState() {
+    return new Promise((resolve, reject) => {
+        chrome.storage.sync.get(['toggleState'], function(result) {
+            if (chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError);
+            } else {
+                resolve(result.toggleState);
+            }
+        });
+    });
+}
+
+async function updateIconVisibility() {
     var icon = document.getElementById("LLM_Icon");
+    let currrentState = "";
     if(icon){
-        if (localStorage.getItem('toggleState') === "checked") {
+        try {
+            currrentState = await getToggleState();
+        } catch (error) {
+            console.log("Error:",message);
+        }
+
+        if (currrentState === "checked") {
             icon.style.display = 'block'; 
         } else {
             icon.style.display = 'none';
@@ -225,32 +282,25 @@ function updateIconVisibility() {
     }
 }
 
-var toggleSwitch = document.getElementById('toggleExtension');
-
-if(toggleSwitch){
-    // if (localStorage.getItem('toggleState') === 'checked') {
-    //     toggleSwitch.checked = true;
-    // } else {
-    //     toggleSwitch.checked = false;
-    // }
-    toggleSwitch.addEventListener('change', function() {
-        chrome.runtime.sendMessage({
-            from: 'popup',
-            subject: 'toggleState',
-            toggleState: toggleSwitch.checked
-        });
-    });
-}
-
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
     let icon = document.getElementById('LLM_Icon');
-    if (icon) {
-        if(request.toggleState == true || request.toggleState == false){
-            icon.style.display = request.toggleState ? 'block' : 'none';
-            request.toggleState ? localStorage.setItem('toggleState', 'checked'):localStorage.setItem('toggleState', 'not_checked');
-            updateIconVisibility(); 
+    //
+    if(icon&&(request.toggleState == true || request.toggleState == false)){
+        icon.style.display = request.toggleState ? 'block' : 'none';
+        let state = request.toggleState ? "checked" : "not_checked";
+        try {
+            await chrome.storage.sync.set({ 'toggleState': state });
+            updateIconVisibility()
+        } catch (error) {
+            console.log("Error:",error);
         }
     }
+    //Update Icon when changing tabs 
+    if(request.action === "updateIconOnTabChange"){
+        updateIconVisibility();
+        sendResponse({result: "UpdatedIcon"});
+    }
+    return true;
 });
 // document.addEventListener('DOMContentLoaded', function() {
 //     /*Toggle Apply and Undo button*/
