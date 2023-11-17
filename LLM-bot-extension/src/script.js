@@ -384,7 +384,7 @@ function add_LLM_Reply_Area(){
     
     divNode.innerHTML = `
         <div style="flex-grow: 1;margin-right: 4px">
-            <textarea id="llm-response" class="Box" style="height:32px;width: 100%; resize:vertical; margin-right:2px;">No comments to reformulate</textarea>
+            <textarea id="llm-response" class="Box" style="min-height:32px; height:32px; width: 100%; resize:vertical; margin-right:2px;">No comments to reformulate</textarea>
         </div>
         <div>
             <button type="button" class="preview_button btn-primary btn" id="copySuggestion"style="margin-right:2px;">Copy</button>
