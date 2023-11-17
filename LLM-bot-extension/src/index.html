@@ -21,12 +21,10 @@
         </div>
         <div id="View" class="tabcontent">
             <h1>GitHub LLM Bot</h1>
-            <div>
+            <div class="setting-item">
                 <span>
                     Enable/Disable Extension
                 </span>
-                <!-- <input type="checkbox" id="toggleExtension" checked>
-                    <span id="slider" class="slider round"></span> -->
                 <label id="enableSwitch" class="switch">
                     
                 </label>
@@ -34,19 +32,38 @@
         </div>
         <div id="Settings" class="tabcontent">
             <h3>Settings</h3>
-            <div>
-                <label>LLM used</label>
-                </br>
-                <input id="LLM_API" type="text" placeholder="Default">
-                <div>
+            <div style="margin: 5px;">
+                <div class="setting-item" style="margin: 2px;">
                     <span>
-                        Enable/Disable Extension
+                        Review code
                     </span>
-                    <!-- <input type="checkbox" id="toggleExtension" checked>
-                        <span id="slider" class="slider round"></span> -->
-                    <label id="switch" class="switch">
+                    &emsp;&emsp;&emsp;&emsp;
+                    <label id="codeSwitch" class="switch">
                         
                     </label>
+                </div>
+                <div class="setting-item" style="margin: 2px;">
+                    <span>
+                        Review relevance
+                    </span>
+                    &emsp;&emsp;
+                    <label id="relevanceSwitch" class="switch">
+                        
+                    </label>
+                </div>
+                <div class="setting-item" style="margin: 2px;">
+                    <span>
+                        Review toxicity
+                    </span>
+                    &emsp;&emsp;&emsp;
+                    <label id="toxicitySwitch" class="switch">
+                        
+                    </label>
+                </div>
+                <div>
+                    <label style="margin: 2px;">LLM used</label>
+                    </br>
+                    <input id="LLM_API" type="text" placeholder="Default" style="margin: 2px;">
                 </div>
             </div>
         </div>

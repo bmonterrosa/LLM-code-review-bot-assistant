@@ -20,6 +20,9 @@ function observeDOM(){
     });
 }
 
+//Icon functions
+
+//Check if icon exists
 function checkIcon(){
     const newCommentField = document.getElementById("new_comment_field");
     let icon = document.getElementById("LLM_Icon");
@@ -32,22 +35,13 @@ function checkIcon(){
         attachIconEvent(icon);
     }
 }
-
-const popupHTML = `
-    <div id="popup-llm" style="display: none; position: absolute; z-index: 1001; margin-top: 5px; width: auto">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <p id="llm-response" style="margin:5px">No comments to reformulate</p>
-            <button type="button" class="preview_button" id="copySuggestion">Copy</button>
-        </div>  
-    </div>
-`;
-
+//Add Icon over github comment box
 async function addIconOverCommentBox(){
     let textarea = document.getElementById("new_comment_field");
     if(textarea){
         try {
-            textarea.parentElement.insertAdjacentHTML('beforeend', popupHTML);
-
+            //add a function to add the text area
+            add_LLM_Reply_Area();
             //Creating the LLM icon
             let icon = document.createElement('img');
             icon.id = "LLM_Icon";
@@ -82,10 +76,10 @@ async function addIconOverCommentBox(){
     }
 }
 
+//Attach onclick event on LLM Icon
 function attachIconEvent(icon){
     icon.onclick = function(event) {
         event.stopPropagation();
-        console.log("Icon was clicked!");
         icon.onmouseover = function() {
             this.style.transform = "translateY(-10%) scale(1.1)";
         };
@@ -94,8 +88,8 @@ function attachIconEvent(icon){
         };
         const popup = document.getElementById('popup-llm');
         if (popup.style.display === 'none') {
-            popup.className = "js-previewable-comment-form write-selected Box CommentBox";    
-            popup.style.display = 'block';
+           // popup.className = "js-previewable-comment-form write-selected Box CommentBox";    
+            popup.style.display = 'flex';
         } else {
             popup.style.display = 'none';
         }
@@ -103,6 +97,28 @@ function attachIconEvent(icon){
     updateIconVisibility();
 }
 
+//Update the visibility of the LLM Icon
+async function updateIconVisibility() {
+    var icon = document.getElementById("LLM_Icon");
+    var textarea = document.getElementById("popup-llm")
+    let currrentState = "";
+    if(icon){
+        try {
+            currrentState = await getToggleState('toggleState');
+            if (currrentState === "checked") {
+                icon.style.display = 'block'; 
+            } else {
+                icon.style.display = 'none';
+            }
+        } catch (error) {
+            console.log("Error:",error);
+        }
+    }
+}
+
+//End of Icon
+
+//watch changed when selecting differents tabs in github Single Application Page (SAP)
 function setupNav(){
     observeDOM();
     checkIcon();
@@ -121,17 +137,25 @@ if (document.readyState === 'loading') {
     setupNav();
 }
 
-// chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-//     if (message.action === "githubPage") {
-//         if(document.body.contains(document.getElementById("new_comment_field"))){
-//             //console.log("in pull page");            
-//         }
-//     }
-// });
+//Function pour changer le contenu de l'extension
+function openTab(tabName) {
+    var i, tabcontent, tablinks;
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("active");
+    }
+    document.getElementById(tabName).style.display = "block";
+    document.getElementById(tabName.toLowerCase() + 'Tab').classList.add("active");
+}
 
 //Popup eventListener
 document.addEventListener('DOMContentLoaded', function() {
     updateTextArea();
+    //Check if on github
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
         if (tabs && tabs[0] && tabs[0].url) {
             const currentURL = tabs[0].url;
@@ -146,6 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    //Change tabs in extension
     document.getElementById('viewTab').addEventListener('click', function () {
         openTab('View');
     });
@@ -156,18 +181,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
     openTab('View');
 
+    //Add settings Toggle
     addStatusToggle();
     updateIconVisibility();
+
+    addCodeToggle()
+    addRelevanceToggle()
+    addToxicToggle()
 });
 
+//Toggle switches functions
+
+//Get the state enable/disable of the extension
+function getToggleState(key) {
+    return new Promise((resolve, reject) => {
+        chrome.storage.sync.get([key], function(result) {
+            if (chrome.runtime.lastError) {
+                reject(chrome.runtime.lastError);
+            } else {
+                resolve(result[key]);
+            }
+        });
+    });
+}
+
+//add enable/disable toggle
 async function addStatusToggle(){
     let lswitch = document.getElementById('enableSwitch');
     let currrentState = "";
+    
     try {
-        currrentState = await getToggleState();
+        currrentState = await getToggleState('toggleState');
     } catch (error) {
         console.log("Error:",message);
     }
+
     let toggle = document.createElement("input");
     toggle.type = "checkbox";
     toggle.id = "toggleExtension";
@@ -193,27 +241,168 @@ async function addStatusToggle(){
     }
 }
 
-//Function pour changer le contenu de l'extension
-function openTab(tabName) {
-    var i, tabcontent, tablinks;
-    tabcontent = document.getElementsByClassName("tabcontent");
-    for (i = 0; i < tabcontent.length; i++) {
-        tabcontent[i].style.display = "none";
+//Add code toggle
+async function addCodeToggle(){
+    let lswitch = document.getElementById('codeSwitch');
+    let currrentState = "";
+    
+    try {
+        currrentState = await getToggleState('toggleCode');
+    } catch (error) {
+        console.log("Error:",message);
     }
-    tablinks = document.getElementsByClassName("tablinks");
-    for (i = 0; i < tablinks.length; i++) {
-        tablinks[i].classList.remove("active");
+
+    let toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.id = "toggleCode";
+    
+    let slider = document.createElement("span");
+    slider.classList = "slider round";
+
+    if (lswitch) {
+        if (currrentState === "checked") {
+            toggle.checked = true;
+        } else {
+            toggle.checked = false;
+        }    
+        lswitch.appendChild(toggle);
+        lswitch.appendChild(slider);
+        toggle.addEventListener('change', function() {
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleCode',
+                toggleCode: toggle.checked
+            });
+        });
     }
-    document.getElementById(tabName).style.display = "block";
-    document.getElementById(tabName.toLowerCase() + 'Tab').classList.add("active");
+}
+
+//Add relevance toggle
+async function addRelevanceToggle(){
+    let lswitch = document.getElementById('relevanceSwitch');
+    let currrentState = "";
+    
+    try {
+        currrentState = await getToggleState('toggleRelevance');
+    } catch (error) {
+        console.log("Error:",message);
+    }
+
+    let toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.id = "toggleRelevance";
+    
+    let slider = document.createElement("span");
+    slider.classList = "slider round";
+
+    if (lswitch) {
+        if (currrentState === "checked") {
+            toggle.checked = true;
+        } else {
+            toggle.checked = false;
+        }    
+        lswitch.appendChild(toggle);
+        lswitch.appendChild(slider);
+        toggle.addEventListener('change', function() {
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleRelevance',
+                toggleRelevance: toggle.checked
+            });
+        });
+    }
+}
+
+//Add toxicity toggle
+async function addToxicToggle(){
+    let lswitch = document.getElementById('toxicitySwitch');
+    let currrentState = "";
+    
+    try {
+        currrentState = await getToggleState('toggleToxicity');
+    } catch (error) {
+        console.log("Error:",message);
+    }
+
+    let toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.id = "toggleToxicity";
+    
+    let slider = document.createElement("span");
+    slider.classList = "slider round";
+
+    if (lswitch) {
+        if (currrentState === "checked") {
+            toggle.checked = true;
+        } else {
+            toggle.checked = false;
+        }    
+        lswitch.appendChild(toggle);
+        lswitch.appendChild(slider);
+        toggle.addEventListener('change', function() {
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleToxicity',
+                toggleToxicity: toggle.checked
+            });
+        });
+    }
+}
+
+//End Toggle
+
+//TextArea functions
+// const popupHTML = `
+//     <div id="popup-llm" style="display: none; position: relative;margin-right: 2px; width: -web-fill-available";left:0>
+//         <div style="display: flex; justify-content: space-between; align-items: center;">
+//             <p id="llm-response" style="margin:5px">No comments to reformulate</p>
+//             <button type="button" class="preview_button btn-primary btn" id="copySuggestion">Copy</button>
+//         </div>  
+//     </div>
+// `;
+
+//Add Textarea related to icon click
+function add_LLM_Reply_Area(){
+    let parentNode = document.getElementById("partial-new-comment-form-actions");
+    if (!parentNode) {
+        console.error("Div not found for textArea");
+        return;
+    }
+
+    const divNode = document.createElement("div");
+    divNode.id="popup-llm";
+    //divNode.classList = "d-flex flex-item-center";
+    divNode.style.cssText = `
+        display: none; 
+        justify-content: space-between;
+        align-items: center;
+        margin-right: 2px;
+        width: 100%;
+        resize:none;
+    `;
+    //divNode.style.width="-webkit-fill-available";
+    
+    divNode.innerHTML = `
+        <div style="flex-grow: 1;margin-right: 4px">
+            <textarea id="llm-response" class="Box" style="height:32px;width: 100%; resize:vertical; margin-right:2px;">No comments to reformulate</textarea>
+        </div>
+        <div>
+            <button type="button" class="preview_button btn-primary btn" id="copySuggestion"style="margin-right:2px;">Copy</button>
+        </div>
+    `;
+    parentNode.children[0].style.width = "-webkit-fill-available";
+
+    parentNode.children[0].prepend(divNode);
+
 }
 
 //Function pour copier le texte
 function copyToClipboard() {
-    const text = document.getElementById('llm-response').innerText;
+    const text = document.getElementById('llm-response').value;
     if(text){
-        navigator.clipboard.writeText(text).then(() => {}).catch(err => {
-            console.error('Can\'t copy text: ', err);
+        console.log(text);
+        navigator.clipboard.writeText(text).then(() => {}).catch(error => {
+            console.error('Can\'t copy text: ', error);
         });
     }
 }
@@ -230,6 +419,7 @@ function attachCopyEvent(){
     }
 }
 
+//todo change once LLM is integrated
 //Add event listener sur le texte area
 function attachTextAreaEvent(){
     let textarea = document.getElementById("new_comment_field");
@@ -238,53 +428,22 @@ function attachTextAreaEvent(){
         textarea.addEventListener('input', function(event) {
             updateTextArea(event.target.value);
             if(event.target.value.length == 0){
-                resBox.textContent = "No comment to reformulate";
+                resBox.value = "No comment to reformulate";
             }
         });
     }
 }
 
+//Update the text area with given texte
 function updateTextArea(input){
     const responseBox = document.getElementById("llm-response");
     if(responseBox){
-        responseBox.textContent = input;
-    }
-        
-}
-
-function getToggleState() {
-    return new Promise((resolve, reject) => {
-        chrome.storage.sync.get(['toggleState'], function(result) {
-            if (chrome.runtime.lastError) {
-                reject(chrome.runtime.lastError);
-            } else {
-                resolve(result.toggleState);
-            }
-        });
-    });
-}
-
-async function updateIconVisibility() {
-    var icon = document.getElementById("LLM_Icon");
-    let currrentState = "";
-    if(icon){
-        try {
-            currrentState = await getToggleState();
-        } catch (error) {
-            console.log("Error:",message);
-        }
-
-        if (currrentState === "checked") {
-            icon.style.display = 'block'; 
-        } else {
-            icon.style.display = 'none';
-        }
+        responseBox.value = input;
     }
 }
-
 chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
     let icon = document.getElementById('LLM_Icon');
-    //
+    //Update toggle state
     if(icon&&(request.toggleState == true || request.toggleState == false)){
         icon.style.display = request.toggleState ? 'block' : 'none';
         let state = request.toggleState ? "checked" : "not_checked";
@@ -302,28 +461,4 @@ chrome.runtime.onMessage.addListener(async function(request, sender, sendRespons
     }
     return true;
 });
-// document.addEventListener('DOMContentLoaded', function() {
-//     /*Toggle Apply and Undo button*/
-//     function toggleButton(buttonElement) {
-//         if (buttonElement.innerText === 'Apply') {
-//             buttonElement.innerText = 'Undo';
-//         } else {
-//             buttonElement.innerText = 'Apply';
-//         }
-//     }
-
-//     document.querySelectorAll('.applyButton').forEach(function(button) {
-//         button.addEventListener('click', function() {
-//             toggleButton(button)
-//             button.classList="undoButton"
-//         });
-//     });
-
-//     document.querySelectorAll('.undoButton').forEach(function(button) {
-//         button.addEventListener('click', function() {
-//             toggleButton(button)
-//             button.classList="applyButton"
-//         });
-//     });
-// });
 
