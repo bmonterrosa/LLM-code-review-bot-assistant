@@ -1,16 +1,16 @@
-function checkCurrentTabUrl() {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        if (tabs.length > 0 && tabs[0].url.includes("pull")) {
-            sendMessageToTab(tabs[0].id, { action: "githubPage" });
-        }
-    });
-}
+// function checkCurrentTabUrl() {
+//     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+//         if (tabs.length > 0 && tabs[0].url.includes("pull")) {
+//             sendMessageToTab(tabs[0].id, { action: "githubPage" });
+//         }
+//     });
+// }
 
-try {
-    checkCurrentTabUrl();
-} catch (error) {
-    console.log(error);
-}
+// try {
+//     checkCurrentTabUrl();
+// } catch (error) {
+//     console.log(error);
+// }
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.from === 'popup'){
@@ -32,10 +32,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 function sendMessageToTab(tabId, message) {
     chrome.tabs.sendMessage(tabId, message, function(response) {
         if (chrome.runtime.lastError) {
-            console.error(chrome.runtime.lastError.message);
+            // console.error(chrome.runtime.lastError.message);
         }
     });
 }
+
 chrome.tabs.onActivated.addListener(function(activeInfo) {
-    sendMessageToTab(activeInfo.tabId, {action: "updateIconOnTabChange"});
+    chrome.tabs.get(activeInfo.tabId, function(tab) {
+        if (tab.url && tab.url.includes('pull')) {
+            sendMessageToTab(activeInfo.tabId, {action: "updateIconOnTabChange"});
+        }
+    });
 });

@@ -352,15 +352,6 @@ async function addToxicToggle(){
 //End Toggle
 
 //TextArea functions
-// const popupHTML = `
-//     <div id="popup-llm" style="display: none; position: relative;margin-right: 2px; width: -web-fill-available";left:0>
-//         <div style="display: flex; justify-content: space-between; align-items: center;">
-//             <p id="llm-response" style="margin:5px">No comments to reformulate</p>
-//             <button type="button" class="preview_button btn-primary btn" id="copySuggestion">Copy</button>
-//         </div>  
-//     </div>
-// `;
-
 //Add Textarea related to icon click
 function add_LLM_Reply_Area(){
     let parentNode = document.getElementById("partial-new-comment-form-actions");
@@ -384,7 +375,7 @@ function add_LLM_Reply_Area(){
     
     divNode.innerHTML = `
         <div style="flex-grow: 1;margin-right: 4px">
-            <textarea id="llm-response" class="Box" style="min-height:32px; height:32px; width: 100%; resize:vertical; margin-right:2px;">No comments to reformulate</textarea>
+            <textarea readonly id="llm-response" class="Box" style="min-height:32px; height:32px; width: 100%; resize:vertical; margin-right:2px;">No comments to reformulate</textarea>
         </div>
         <div>
             <button type="button" class="preview_button btn-primary btn" id="copySuggestion"style="margin-right:2px;">Copy</button>
@@ -441,6 +432,10 @@ function updateTextArea(input){
         responseBox.value = input;
     }
 }
+
+//End TextArea
+
+//add event listener for toggle state
 chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
     let icon = document.getElementById('LLM_Icon');
     //Update toggle state
@@ -462,3 +457,130 @@ chrome.runtime.onMessage.addListener(async function(request, sender, sendRespons
     return true;
 });
 
+//Github API Functions
+//PAT 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
+const token = "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";
+const headers = {
+    'Authorization': `token ${token}`,
+}
+
+function setToken(customToken){
+    token = customToken;
+}
+
+function getToken(){
+    return token;
+}
+
+//Function to get pull request comments 
+async function getPullRequestComments() {
+    try {
+        var urlInfo = getInfoFromURL();
+        const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
+        const response = await fetch(url, { headers: headers });
+        if (!response.ok) {
+            throw new Error(`Error: ${response.status}`);
+        }
+        const data = await response.json(); 
+        const comments = data.map(async comment => {
+            //console.log(file);
+            return comment.body; ;
+        });
+
+        return Promise.all(comments);
+    } catch (error) {
+        // console.error('Failed to fetch comments:', error);
+    }
+}
+
+//Test to get comments
+getPullRequestComments().then(comments => {
+        if (comments) {
+            console.log(comments);
+        }
+    });
+
+//Function to extract info from URL to get all necessary data
+function getInfoFromURL() {
+    const currentUrl = window.location.href;
+    const regex = /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/;
+    const match = currentUrl.match(regex);
+
+    if (match) {
+        const owner = match[1];
+        const repo = match[2];
+        const pullNumber = match[3];
+        return {
+            owner: owner,
+            repo: repo,
+            pullNumber: pullNumber
+        };
+    } else {
+        //console.log('URL does not match the expected GitHub pull request format.');
+        return null;
+    }
+}
+
+//Function to get modified or added files url from Github
+async function getPullRequestFiles() {
+    try {
+        var urlInfo = getInfoFromURL();
+        const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/files`;
+        const response = await fetch(url, { headers: headers });
+
+        if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status}`);
+        }
+
+        const files = await response.json();
+        return files;
+    } catch (error) {
+        // console.error('Failed to fetch PR files:', error);
+    }
+}
+
+//Test to get files
+// getPullRequestFiles().then(files => {
+//         if (files) {
+//             console.log(files);
+//         }
+//     });
+
+//Function to seperate the files and get raw content
+async function getFileRawContent(files) {
+    try {
+        const fileContentsPromises = files.map(async file => {
+            //console.log(file);
+            const apiURL = file.contents_url;
+            //console.log(apiURL);
+            const response = await fetch(apiURL, { headers: headers });
+
+            if (!response.ok) {
+                throw new Error(`HTTP Error: ${response.status}`);
+            }
+
+            const content = await response.json();
+            //console.log(content);
+            const decodedContent = atob(content.content);
+            //TODO Console.log for raw Text content
+            //console.log(decodedContent);
+
+            return decodedContent ;
+        });
+
+        return Promise.all(fileContentsPromises);
+    } catch (error) {
+        console.error('Failed to fetch file contents:', error);
+    }
+}
+
+//Test to get raw content of files
+getPullRequestFiles().then(files => {
+        if (files) {
+            return getFileRawContent(files);
+        }
+    }).then(filesWithContent => {
+        if (filesWithContent) {
+            console.log(filesWithContent);
+        }
+    });
