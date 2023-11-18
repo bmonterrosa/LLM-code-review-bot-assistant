@@ -1,16 +1,16 @@
-// function checkCurrentTabUrl() {
-//     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-//         if (tabs.length > 0 && tabs[0].url.includes("pull")) {
-//             sendMessageToTab(tabs[0].id, { action: "githubPage" });
-//         }
-//     });
-// }
+function checkCurrentTabUrl() {
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (tabs.length > 0 && tabs[0].url.includes("pull")) {
+            sendMessageToTab(tabs[0].id, { action: "githubPage" });
+        }
+    });
+}
 
-// try {
-//     checkCurrentTabUrl();
-// } catch (error) {
-//     console.log(error);
-// }
+try {
+    checkCurrentTabUrl();
+} catch (error) {
+    console.log(error);
+}
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.from === 'popup'){

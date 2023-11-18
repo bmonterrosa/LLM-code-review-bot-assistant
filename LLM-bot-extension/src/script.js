@@ -1,5 +1,6 @@
 let observer = null;
 // Watch changes in the DOM
+// Runs when something happens on the page
 function observeDOM(){
     if(observer){
         observer.disconnect();
@@ -10,6 +11,14 @@ function observeDOM(){
                 checkIcon();
                 attachTextAreaEvent();
                 attachCopyEvent();
+
+                let comments = getAllPullRequestComments();
+                let fileContent = getAllFileContent();
+
+                if(comments && fileContent){
+                    console.log(comments);
+                    console.log(fileContent);
+                }
             }
         });
     });
@@ -21,6 +30,8 @@ function observeDOM(){
 }
 
 //Icon functions
+//
+//
 
 //Check if icon exists
 function checkIcon(){
@@ -71,7 +82,7 @@ async function addIconOverCommentBox(){
             textarea.parentElement.appendChild(icon);
             updateIconVisibility();
         } catch (error) {
-            console.log(error)
+            //console.log(error)
         }
     }
 }
@@ -117,6 +128,8 @@ async function updateIconVisibility() {
 }
 
 //End of Icon
+//
+//
 
 //watch changed when selecting differents tabs in github Single Application Page (SAP)
 function setupNav(){
@@ -191,6 +204,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 //Toggle switches functions
+//
+//
 
 //Get the state enable/disable of the extension
 function getToggleState(key) {
@@ -349,9 +364,13 @@ async function addToxicToggle(){
     }
 }
 
-//End Toggle
+//End Toggle switches functions
+//
+//
 
 //TextArea functions
+//
+//
 //Add Textarea related to icon click
 function add_LLM_Reply_Area(){
     let parentNode = document.getElementById("partial-new-comment-form-actions");
@@ -434,6 +453,8 @@ function updateTextArea(input){
 }
 
 //End TextArea
+//
+//
 
 //add event listener for toggle state
 chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
@@ -458,6 +479,9 @@ chrome.runtime.onMessage.addListener(async function(request, sender, sendRespons
 });
 
 //Github API Functions
+//
+//
+
 //PAT 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
 const token = "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";
 const headers = {
@@ -505,7 +529,6 @@ function getInfoFromURL() {
     const currentUrl = window.location.href;
     const regex = /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/;
     const match = currentUrl.match(regex);
-
     if (match) {
         const owner = match[1];
         const repo = match[2];
@@ -516,7 +539,6 @@ function getInfoFromURL() {
             pullNumber: pullNumber
         };
     } else {
-        //console.log('URL does not match the expected GitHub pull request format.');
         return null;
     }
 }
@@ -527,11 +549,9 @@ async function getPullRequestFiles() {
         var urlInfo = getInfoFromURL();
         const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/files`;
         const response = await fetch(url, { headers: headers });
-
         if (!response.ok) {
             throw new Error(`HTTP Error: ${response.status}`);
         }
-
         const files = await response.json();
         return files;
     } catch (error) {
@@ -584,3 +604,52 @@ getPullRequestFiles().then(files => {
             console.log(filesWithContent);
         }
     });
+
+//Functions to get clean comments and file contents
+
+//Function to get clean comments
+function getAllPullRequestComments(){
+    getPullRequestComments().then(comments => {
+        if (comments) {
+            return comments;
+        }
+    });
+}
+
+//Function to get clean file contents
+function getAllFileContent(){
+    getPullRequestFiles().then(files => {
+        if (files) {
+            return getFileRawContent(files);
+        }
+    }).then(filesWithContent => {
+        if (filesWithContent) {
+            return filesWithContent;
+        }
+    });
+}
+
+//End Github API Functions
+//
+//
+
+// chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+//     if (message.action === "githubPage") {
+//         let comments = getAllPullRequestComments();
+//         let fileContent = getAllFileContent();
+
+//         if(comments && fileContent){
+//             console.log(comments);
+//             console.log(fileContent);
+//         }
+//     }
+// });
+
+
+let comments = getAllPullRequestComments();
+let fileContent = getAllFileContent();
+
+if(comments && fileContent){
+    console.log(comments);
+    console.log(fileContent);
+}
