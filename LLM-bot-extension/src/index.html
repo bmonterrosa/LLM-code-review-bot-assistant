@@ -35,9 +35,16 @@
             <div style="margin: 5px;">
                 <div class="setting-item" style="margin: 2px;">
                     <span>
+                        Reformulate comment
+                    </span>
+                    <label id="reformulationSwitch" class="switch">
+                        
+                    </label>
+                </div>
+                <div class="setting-item" style="margin: 2px;">
+                    <span>
                         Review code
                     </span>
-                    &emsp;&emsp;&emsp;&emsp;
                     <label id="codeSwitch" class="switch">
                         
                     </label>
@@ -46,7 +53,6 @@
                     <span>
                         Review relevance
                     </span>
-                    &emsp;&emsp;
                     <label id="relevanceSwitch" class="switch">
                         
                     </label>
@@ -55,7 +61,6 @@
                     <span>
                         Review toxicity
                     </span>
-                    &emsp;&emsp;&emsp;
                     <label id="toxicitySwitch" class="switch">
                         
                     </label>
@@ -65,11 +70,14 @@
                     </br>
                     <input id="LLM_API" type="text" placeholder="Default" style="margin: 2px;">
                 </div>
-                <!-- <div>
-                    <label style="margin: 2px;">Github API Token</label>
+                <div>
+                    <label style="margin: 2px;">Github Access Token</label>
                     </br>
-                    <input id="github_API" type="text" placeholder="Default" style="margin: 2px;">
-                </div> -->
+                    <span>
+                        <input id="github_Token" type="password" style="margin: 2px;">
+                        <button class="" id="TokenSave">Save</button>
+                    </span>
+                </div>
             </div>
         </div>
     </div>

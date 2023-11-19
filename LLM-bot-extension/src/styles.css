@@ -185,3 +185,7 @@ input:checked + .slider:before {
 #LLM_API{
     width: 100%;
 }
+
+#github_Token{
+    width: 75%;
+}

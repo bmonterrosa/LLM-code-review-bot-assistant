@@ -11,14 +11,6 @@ function observeDOM(){
                 checkIcon();
                 attachTextAreaEvent();
                 attachCopyEvent();
-
-                let comments = getAllPullRequestComments();
-                let fileContent = getAllFileContent();
-
-                if(comments && fileContent){
-                    console.log(comments);
-                    console.log(fileContent);
-                }
             }
         });
     });
@@ -37,15 +29,14 @@ function observeDOM(){
 function checkIcon(){
     const newCommentField = document.getElementById("new_comment_field");
     let icon = document.getElementById("LLM_Icon");
-
     if(newCommentField && !icon){
         addIconOverCommentBox();
     }
-
     if(icon){
         attachIconEvent(icon);
     }
 }
+
 //Add Icon over github comment box
 async function addIconOverCommentBox(){
     let textarea = document.getElementById("new_comment_field");
@@ -89,7 +80,7 @@ async function addIconOverCommentBox(){
 
 //Attach onclick event on LLM Icon
 function attachIconEvent(icon){
-    icon.onclick = function(event) {
+    icon.onclick = async function(event) {
         event.stopPropagation();
         icon.onmouseover = function() {
             this.style.transform = "translateY(-10%) scale(1.1)";
@@ -99,8 +90,9 @@ function attachIconEvent(icon){
         };
         const popup = document.getElementById('popup-llm');
         if (popup.style.display === 'none') {
-           // popup.className = "js-previewable-comment-form write-selected Box CommentBox";    
             popup.style.display = 'flex';
+            //TODO give the prompt to 
+            console.log(await createPrompt());
         } else {
             popup.style.display = 'none';
         }
@@ -120,6 +112,7 @@ async function updateIconVisibility() {
                 icon.style.display = 'block'; 
             } else {
                 icon.style.display = 'none';
+                textarea.style.display = 'none';
             }
         } catch (error) {
             console.log("Error:",error);
@@ -132,7 +125,7 @@ async function updateIconVisibility() {
 //
 
 //watch changed when selecting differents tabs in github Single Application Page (SAP)
-function setupNav(){
+async function setupNav(){
     observeDOM();
     checkIcon();
     attachTextAreaEvent();
@@ -165,14 +158,13 @@ function openTab(tabName) {
     document.getElementById(tabName.toLowerCase() + 'Tab').classList.add("active");
 }
 
-//Popup eventListener
+//Extension eventListener
 document.addEventListener('DOMContentLoaded', function() {
     updateTextArea();
     //Check if on github
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
         if (tabs && tabs[0] && tabs[0].url) {
             const currentURL = tabs[0].url;
-
             if (currentURL.includes("github.com")) {
                 document.getElementById('content').style.display = 'block';
             } else {
@@ -195,12 +187,15 @@ document.addEventListener('DOMContentLoaded', function() {
     openTab('View');
 
     //Add settings Toggle
+    addReformToggle();
     addStatusToggle();
     updateIconVisibility();
 
     addCodeToggle()
     addRelevanceToggle()
     addToxicToggle()
+
+    addEventSaveToken()
 });
 
 //Toggle switches functions
@@ -208,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
 //
 
 //Get the state enable/disable of the extension
-function getToggleState(key) {
+async function getToggleState(key) {
     return new Promise((resolve, reject) => {
         chrome.storage.sync.get([key], function(result) {
             if (chrome.runtime.lastError) {
@@ -218,6 +213,42 @@ function getToggleState(key) {
             }
         });
     });
+}
+
+//Add reformulate toggle
+async function addReformToggle(){
+    let lswitch = document.getElementById('reformulationSwitch');
+    let currrentState = "";
+    
+    try {
+        currrentState = await getToggleState('toggleReform');
+    } catch (error) {
+        console.log("Error:",message);
+    }
+
+    let toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.id = "toggleReform";
+    
+    let slider = document.createElement("span");
+    slider.classList = "slider round";
+
+    if (lswitch) {
+        if (currrentState === "checked") {
+            toggle.checked = true;
+        } else {
+            toggle.checked = false;
+        }    
+        lswitch.appendChild(toggle);
+        lswitch.appendChild(slider);
+        toggle.addEventListener('change', function() {
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleReform',
+                toggleReform: toggle.checked
+            });
+        });
+    }
 }
 
 //add enable/disable toggle
@@ -371,8 +402,9 @@ async function addToxicToggle(){
 //TextArea functions
 //
 //
+
 //Add Textarea related to icon click
-function add_LLM_Reply_Area(){
+async function add_LLM_Reply_Area(){
     let parentNode = document.getElementById("partial-new-comment-form-actions");
     if (!parentNode) {
         console.error("Div not found for textArea");
@@ -404,6 +436,16 @@ function add_LLM_Reply_Area(){
 
     parentNode.children[0].prepend(divNode);
 
+    //Check for reform state for copy button
+    let copyButton = document.getElementById("copySuggestion");
+    let reformState = await getToggleState("toggleReform");
+    if(copyButton && reformState != null){
+        if(reformState === "checked"){
+            copyButton.style.display = "flex";
+        }else if(reformState === "not_checked"){
+            copyButton.style.display = "none";
+        }
+    }
 }
 
 //Function pour copier le texte
@@ -435,28 +477,64 @@ function attachTextAreaEvent(){
     let textarea = document.getElementById("new_comment_field");
     let resBox = document.getElementById("llm-response")
     if(textarea){
-        textarea.addEventListener('input', function(event) {
+
+        //EventListeners for when user gets out of textarea
+        textarea.addEventListener('change', function(event) {
             updateTextArea(event.target.value);
+        });
+        textarea.addEventListener('blur', function(event) {
+            updateTextArea(event.target.value);
+        });
+
+        //EventListeners for when user is done writing, get the text is delayed
+        textarea.addEventListener('input', getTextOvertime(function(event) {
+            updateTextArea(event.target.value); 
             if(event.target.value.length == 0){
                 resBox.value = "No comment to reformulate";
             }
-        });
+        }),1000);
+
+       
     }
+}
+
+//Function to delay the get of the input
+function getTextOvertime(func,waitingFunc){
+    let time;
+    return function execute(...args){
+        const overtime = function(){
+            clearTimeout(time);
+            func(...args);
+        };
+        clearTimeout(time);
+        time = setTimeout(overtime,waitingFunc)
+    }    
 }
 
 //Update the text area with given texte
-function updateTextArea(input){
-    const responseBox = document.getElementById("llm-response");
-    if(responseBox){
-        responseBox.value = input;
-    }
+async function updateTextArea(input){
+    console.log("text was set");
+    setCurrentComment(input);
+    await createPrompt();
+    // const responseBox = document.getElementById("llm-response");
+    // if(responseBox){
+    //     responseBox.value = input;
+    // }
 }
 
+var currentComment;
+function setCurrentComment(input){
+    currentComment = input;
+}
+
+function getCurrentComment() {
+    return currentComment;
+}
 //End TextArea
 //
 //
 
-//add event listener for toggle state
+//add event listener for all toggle state
 chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
     let icon = document.getElementById('LLM_Icon');
     //Update toggle state
@@ -466,10 +544,22 @@ chrome.runtime.onMessage.addListener(async function(request, sender, sendRespons
         try {
             await chrome.storage.sync.set({ 'toggleState': state });
             updateIconVisibility()
+
         } catch (error) {
             console.log("Error:",error);
         }
     }
+
+    //Handle toggle reform comment state
+    let copyButton = document.getElementById("copySuggestion");
+    if(copyButton && request.toggleReform != null){
+        if(request.toggleReform){
+            copyButton.style.display = "flex";
+        }else if(!request.toggleReform){
+            copyButton.style.display = "none";
+        }
+    }
+    
     //Update Icon when changing tabs 
     if(request.action === "updateIconOnTabChange"){
         updateIconVisibility();
@@ -483,46 +573,60 @@ chrome.runtime.onMessage.addListener(async function(request, sender, sendRespons
 //
 
 //PAT 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
-const token = "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";
-const headers = {
+var token = "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";
+var headers = {
     'Authorization': `token ${token}`,
 }
 
 function setToken(customToken){
     token = customToken;
+    headers= {
+        'Authorization': `token ${token}`,
+    }
 }
 
 function getToken(){
     return token;
 }
 
+function addEventSaveToken(){
+    let saveButton = document.getElementById("TokenSave");
+    saveButton.addEventListener("click", async ()=>{
+        let tokenText = document.getElementById("github_Token");
+        if(tokenText.value){
+            setToken(tokenText.value);
+            //console.log(getToken());
+        }
+    });
+}
+
 //Function to get pull request comments 
 async function getPullRequestComments() {
-    try {
-        var urlInfo = getInfoFromURL();
-        const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
-        const response = await fetch(url, { headers: headers });
-        if (!response.ok) {
-            throw new Error(`Error: ${response.status}`);
+    if(token){
+        try {
+            var urlInfo = getInfoFromURL();
+            const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
+            const response = await fetch(url, { headers: headers });
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status}`);
+            }
+            const data = await response.json(); 
+            const comments = data.map(async comment => {
+                return comment.body;
+            });
+            return Promise.all(comments);
+        } catch (error) {
+            console.error('Failed to fetch comments:', error);
         }
-        const data = await response.json(); 
-        const comments = data.map(async comment => {
-            //console.log(file);
-            return comment.body; ;
-        });
-
-        return Promise.all(comments);
-    } catch (error) {
-        // console.error('Failed to fetch comments:', error);
     }
 }
 
 //Test to get comments
-getPullRequestComments().then(comments => {
-        if (comments) {
-            console.log(comments);
-        }
-    });
+// getPullRequestComments().then(comments => {
+//         if (comments) {
+//             console.log(comments);
+//         }
+//     });
 
 //Function to extract info from URL to get all necessary data
 function getInfoFromURL() {
@@ -545,17 +649,19 @@ function getInfoFromURL() {
 
 //Function to get modified or added files url from Github
 async function getPullRequestFiles() {
-    try {
-        var urlInfo = getInfoFromURL();
-        const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/files`;
-        const response = await fetch(url, { headers: headers });
-        if (!response.ok) {
-            throw new Error(`HTTP Error: ${response.status}`);
+    if(token){
+        try {
+            var urlInfo = getInfoFromURL();
+            const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/files`;
+            const response = await fetch(url, { headers: headers });
+            if (!response.ok) {
+                throw new Error(`HTTP Error: ${response.status}`);
+            }
+            const files = await response.json();
+            return files;
+        } catch (error) {
+            //console.error('Failed to get PR:', error);
         }
-        const files = await response.json();
-        return files;
-    } catch (error) {
-        // console.error('Failed to fetch PR files:', error);
     }
 }
 
@@ -581,57 +687,120 @@ async function getFileRawContent(files) {
 
             const content = await response.json();
             //console.log(content);
+            const contentName = content.name;
             const decodedContent = atob(content.content);
             //TODO Console.log for raw Text content
             //console.log(decodedContent);
 
-            return decodedContent ;
+            return {contentName,decodedContent} ;
+           
         });
 
         return Promise.all(fileContentsPromises);
     } catch (error) {
-        console.error('Failed to fetch file contents:', error);
+        //console.error('Failed to fetch file contents:', error);
     }
 }
 
 //Test to get raw content of files
-getPullRequestFiles().then(files => {
-        if (files) {
-            return getFileRawContent(files);
-        }
-    }).then(filesWithContent => {
-        if (filesWithContent) {
-            console.log(filesWithContent);
-        }
-    });
+// getPullRequestFiles().then(files => {
+//         if (files) {
+//             return getFileRawContent(files);
+//         }
+//     }).then(filesWithContent => {
+//         if (filesWithContent) {
+//             console.log(filesWithContent);
+//         }
+//     });
 
 //Functions to get clean comments and file contents
 
 //Function to get clean comments
 function getAllPullRequestComments(){
-    getPullRequestComments().then(comments => {
+    return getPullRequestComments().then(comments => {
         if (comments) {
             return comments;
         }
+        return [];
     });
 }
 
 //Function to get clean file contents
 function getAllFileContent(){
-    getPullRequestFiles().then(files => {
+    return getPullRequestFiles().then(files => {
         if (files) {
             return getFileRawContent(files);
         }
+        return [];
     }).then(filesWithContent => {
         if (filesWithContent) {
             return filesWithContent;
         }
+        return [];
     });
 }
 
 //End Github API Functions
 //
 //
+
+
+//Function to create the prompt
+//
+//
+
+async function createPrompt(){
+    var prompt = "";
+    let codeState = await getToggleState('toggleCode');
+
+    //Add code element to prompt
+    if(codeState === 'checked'){
+        prompt += "Here are files that have been modified or added : \n";
+        let fileContent = await getAllFileContent();
+        if(fileContent){
+            fileContent.forEach(content =>{
+                var name = "File name : " + content.contentName + "\n";
+                var textContent = content.decodedContent + "\n\n";
+                prompt += name + textContent;
+            })
+        }
+    }
+
+    //Add comments to prompt
+    let comments = await getAllPullRequestComments();
+    if(comments){
+        prompt += "Here are comments made on this PR : \n";
+        comments.forEach(comment => {
+            prompt += comment + "\n"
+
+        });
+    }
+
+    //Get current comment
+    prompt += "Here is a comment that will be posted : \n";
+    prompt += getCurrentComment() + "\n";
+
+    let reformStat = await getToggleState("toggleReform");
+    if(reformStat === 'checked'){
+        prompt += "Can you reformulate my comment? \n";
+    }else{
+        prompt += "Post my comment as it is. \n";
+    }
+
+    let relevanceState = await getToggleState('toggleRelevance');
+    let toxicState = await getToggleState('toggleToxicity');
+    if(relevanceState === 'checked'){
+        prompt += "Is this comment relevant to the context? \n"
+    }
+
+    if(toxicState === 'checked'){
+        prompt += "Is this comment toxic? \n"
+    }
+
+    return prompt;
+}
+
+//End Prompt creation
 
 // chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 //     if (message.action === "githubPage") {
@@ -646,10 +815,10 @@ function getAllFileContent(){
 // });
 
 
-let comments = getAllPullRequestComments();
-let fileContent = getAllFileContent();
+// let comments = getAllPullRequestComments();
+// let fileContent = getAllFileContent();
 
-if(comments && fileContent){
-    console.log(comments);
-    console.log(fileContent);
-}
+// if(comments && fileContent){
+//     console.log(comments);
+//     console.log(fileContent);
+// }

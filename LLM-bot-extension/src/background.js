@@ -16,7 +16,8 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.from === 'popup'){
         chrome.tabs.query({active: true, currentWindow: true}, async function(tabs) {
             if(tabs.length>0){
-                let toggleValue = request.subject === 'toggleState'? request.toggleState : 
+                let toggleValue =   request.subject === 'toggleReform'? request.toggleReform : 
+                                    request.subject === 'toggleState'? request.toggleState : 
                                     request.subject === 'toggleCode'? request.toggleCode :
                                     request.subject === 'toggleRelevance'? request.toggleRelevance :
                                     request.subject === 'toggleToxicity'? request.toggleToxicity : null;
