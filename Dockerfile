@@ -1,8 +1,17 @@
-FROM ubuntu:latest
+#
+FROM python:3.11.0
 
-RUN apt update
-RUN apt install python3 -y
+#
+WORKDIR /code
 
-WORKDIR usr/app/src
+#
+COPY ./requirements.txt /code/requirements.txt
 
-COPY ./LLM-bot-extension/src/main.py ./
+#
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN pip install git+https://github.com/huggingface/transformers.git@main accelerate
+#
+COPY ./app /code/app
+
+#
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
