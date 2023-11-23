@@ -205,13 +205,16 @@ document.addEventListener('DOMContentLoaded', function() {
 //Get the state enable/disable of the extension
 async function getToggleState(key) {
     return new Promise((resolve, reject) => {
-        chrome.storage.sync.get([key], function(result) {
-            if (chrome.runtime.lastError) {
-                reject(chrome.runtime.lastError);
-            } else {
-                resolve(result[key]);
-            }
-        });
+        try {
+            chrome.storage.sync.get([key], function(result) {
+                if (chrome.runtime.lastError) {
+                    reject(chrome.runtime.lastError);
+                } else {
+                    resolve(result[key]);
+                }
+            });
+        } catch (error) {
+        }
     });
 }
 
@@ -452,7 +455,6 @@ async function add_LLM_Reply_Area(){
 function copyToClipboard() {
     const text = document.getElementById('llm-response').value;
     if(text){
-        console.log(text);
         navigator.clipboard.writeText(text).then(() => {}).catch(error => {
             console.error('Can\'t copy text: ', error);
         });
@@ -477,17 +479,26 @@ function attachTextAreaEvent(){
     let textarea = document.getElementById("new_comment_field");
     let resBox = document.getElementById("llm-response")
     if(textarea){
-
+        let area = document.getElementById("popup-llm");
         //EventListeners for when user gets out of textarea
         textarea.addEventListener('change', function(event) {
             updateTextArea(event.target.value);
+            if(area){
+                area.style.display = "none";
+            }
         });
         textarea.addEventListener('blur', function(event) {
             updateTextArea(event.target.value);
+            if(area){
+                area.style.display = "none";
+            }
         });
 
         //EventListeners for when user is done writing, get the text is delayed
         textarea.addEventListener('input', getTextOvertime(function(event) {
+            if(area){
+                area.style.display = "none";
+            }
             updateTextArea(event.target.value); 
             if(event.target.value.length == 0){
                 resBox.value = "No comment to reformulate";
@@ -513,7 +524,6 @@ function getTextOvertime(func,waitingFunc){
 
 //Update the text area with given texte
 async function updateTextArea(input){
-    console.log("text was set");
     setCurrentComment(input);
     await createPrompt();
     // const responseBox = document.getElementById("llm-response");
@@ -565,6 +575,12 @@ chrome.runtime.onMessage.addListener(async function(request, sender, sendRespons
         updateIconVisibility();
         sendResponse({result: "UpdatedIcon"});
     }
+    
+    let area = document.getElementById("popup-llm");
+    if(area){
+        area.style.display = "none";
+    }
+
     return true;
 });
 
@@ -616,8 +632,10 @@ async function getPullRequestComments() {
             });
             return Promise.all(comments);
         } catch (error) {
-            console.error('Failed to fetch comments:', error);
+            //console.error('Failed to fetch comments:', error);
         }
+    }else{
+        alert("No Personal access token detected!")
     }
 }
 
@@ -662,6 +680,8 @@ async function getPullRequestFiles() {
         } catch (error) {
             //console.error('Failed to get PR:', error);
         }
+    }else{
+        alert("No Personal access token detected!")
     }
 }
 
@@ -676,22 +696,16 @@ async function getPullRequestFiles() {
 async function getFileRawContent(files) {
     try {
         const fileContentsPromises = files.map(async file => {
-            //console.log(file);
             const apiURL = file.contents_url;
-            //console.log(apiURL);
             const response = await fetch(apiURL, { headers: headers });
 
             if (!response.ok) {
                 throw new Error(`HTTP Error: ${response.status}`);
             }
-
             const content = await response.json();
-            //console.log(content);
             const contentName = content.name;
             const decodedContent = atob(content.content);
-            //TODO Console.log for raw Text content
-            //console.log(decodedContent);
-
+            
             return {contentName,decodedContent} ;
            
         });
@@ -777,15 +791,8 @@ async function createPrompt(){
     }
 
     //Get current comment
-    prompt += "Here is a comment that will be posted : \n";
-    prompt += getCurrentComment() + "\n";
-
-    let reformStat = await getToggleState("toggleReform");
-    if(reformStat === 'checked'){
-        prompt += "Can you reformulate my comment? \n";
-    }else{
-        prompt += "Post my comment as it is. \n";
-    }
+    prompt += "Here is a comment that will be posted : \n\n";
+    prompt += getCurrentComment() + "\n\n";
 
     let relevanceState = await getToggleState('toggleRelevance');
     let toxicState = await getToggleState('toggleToxicity');
@@ -797,28 +804,13 @@ async function createPrompt(){
         prompt += "Is this comment toxic? \n"
     }
 
+    let reformStat = await getToggleState("toggleReform");
+    if(reformStat === 'checked'){
+        prompt += "Can you reformulate my comment? \n";
+    }else{
+        prompt += "Return my comment as it is. \n";
+    }
     return prompt;
 }
 
 //End Prompt creation
-
-// chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-//     if (message.action === "githubPage") {
-//         let comments = getAllPullRequestComments();
-//         let fileContent = getAllFileContent();
-
-//         if(comments && fileContent){
-//             console.log(comments);
-//             console.log(fileContent);
-//         }
-//     }
-// });
-
-
-// let comments = getAllPullRequestComments();
-// let fileContent = getAllFileContent();
-
-// if(comments && fileContent){
-//     console.log(comments);
-//     console.log(fileContent);
-// }
