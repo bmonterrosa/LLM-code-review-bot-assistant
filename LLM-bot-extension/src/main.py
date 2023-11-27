@@ -1,5 +1,6 @@
 from typing import Union
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from torch import cuda
@@ -22,6 +23,14 @@ historique = {}
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    #allow_origins=["https://github.com"],
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 class PromtRequest(BaseModel):
     id: str
@@ -43,7 +52,7 @@ def premier_demarrage():
 
     tokenizer.save_pretrained(save_dir)
     model.save_pretrained(save_dir)
-
+    print(device)
     return {"Page": "Premier demarrage"}
 
 # marche pas
