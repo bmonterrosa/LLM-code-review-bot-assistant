@@ -73,11 +73,32 @@ async function addIconOverCommentBox(){
             textarea.parentElement.appendChild(icon);
             updateIconVisibility();
         } catch (error) {
-            //console.log(error)
         }
     }
 }
 
+var llm_response = "";
+function save_llm_response(input){
+    llm_response = input;
+}
+
+function get_llm_response(){
+    return llm_response;
+}
+
+async function getResponse() {
+    return new Promise((resolve, reject) => {
+        try {
+            chrome.storage.local.get('llm_response', function(result) {
+                if (chrome.runtime.lastError) {
+                    reject(chrome.runtime.lastError);
+                } else {
+                    resolve(result['llm_response']);
+                }
+            });
+        } catch (error) {}
+    });
+}
 //Attach onclick event on LLM Icon
 function attachIconEvent(icon){
     icon.onclick = async function(event) {
@@ -90,14 +111,54 @@ function attachIconEvent(icon){
         };
         const popup = document.getElementById('popup-llm');
         if (popup.style.display === 'none') {
-            popup.style.display = 'flex';
-            //TODO give the prompt to 
-            console.log(await createPrompt());
+            popup.style.display = 'flex';      
+            let resBox = document.getElementById("llm-response");
+
+            //Add a buffering effect to the response box
+            let dotCount = 0;
+            const maxDots = 3;
+            const interval = 500;
+
+            const intervalId = setInterval(() => {
+                dotCount = (dotCount + 1) % (maxDots + 1);
+                resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
+            }, interval);
+
+            //Send request to LLM
+            await createPrompt().then(async data =>{
+                await postPrompt(data).then(response => {
+                    clearInterval(intervalId);
+
+                    var res = response.result.toString();
+                    var splitText = res.split('INST]');
+                    //to remove
+                    console.log(res);
+
+                    save_llm_response(splitText[splitText.length-1]);
+
+                    chrome.runtime.sendMessage({
+                        from: 'popup',
+                        subject: 'llm_response',
+                        response: get_llm_response()
+                    });
+
+                    if(splitText[splitText.length-1].split('"')[1]){
+                        resBox.value = splitText[splitText.length-1].split('"')[1];
+                    }else{
+                        resBox.value = get_llm_response();
+                    }
+                    popup.style.display = 'flex';
+
+                }).catch((error) => {
+                    console.log(error);
+                })
+            })
+
         } else {
             popup.style.display = 'none';
         }
     };
-    updateIconVisibility();
+    //updateIconVisibility();
 }
 
 //Update the visibility of the LLM Icon
@@ -139,6 +200,7 @@ document.addEventListener('pjax:end',setupNav);
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setupNav);
+    chrome.storage.sync.set({ [request.subject]: "No response to display"});
 } else {
     setupNav();
 }
@@ -159,7 +221,7 @@ function openTab(tabName) {
 }
 
 //Extension eventListener
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     updateTextArea();
     //Check if on github
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
@@ -183,6 +245,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('settingsTab').addEventListener('click', function () {
         openTab('Settings');
     });
+
+    var resp = await getResponse();
+    if(resp){
+        document.getElementById('full-llm-response').display = 'block';
+        document.getElementById('full-llm-response').value = resp;
+        document.getElementById('full-llm-response').height = 'max-content';
+    }else{
+        document.getElementById('full-llm-response').display = 'none';
+    }
 
     openTab('View');
 
@@ -222,14 +293,22 @@ async function getToggleState(key) {
 async function addReformToggle(){
     let lswitch = document.getElementById('reformulationSwitch');
     let currrentState = "";
-    
+    let toggle = document.createElement("input");
+
     try {
         currrentState = await getToggleState('toggleReform');
+        if (!currrentState){
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleReform',
+                toggleReform: toggle.checked
+            });
+            currrentState = await getToggleState('toggleReform');
+        }
     } catch (error) {
         console.log("Error:",message);
     }
 
-    let toggle = document.createElement("input");
     toggle.type = "checkbox";
     toggle.id = "toggleReform";
     
@@ -258,14 +337,22 @@ async function addReformToggle(){
 async function addStatusToggle(){
     let lswitch = document.getElementById('enableSwitch');
     let currrentState = "";
-    
+    let toggle = document.createElement("input");
+
     try {
         currrentState = await getToggleState('toggleState');
+        if (!currrentState){
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleState',
+                toggleReform: toggle.checked
+            });
+            currrentState = await getToggleState('toggleState');
+        }
     } catch (error) {
         console.log("Error:",message);
     }
 
-    let toggle = document.createElement("input");
     toggle.type = "checkbox";
     toggle.id = "toggleExtension";
     
@@ -294,14 +381,22 @@ async function addStatusToggle(){
 async function addCodeToggle(){
     let lswitch = document.getElementById('codeSwitch');
     let currrentState = "";
-    
+    let toggle = document.createElement("input");
+
     try {
         currrentState = await getToggleState('toggleCode');
+        if (!currrentState){
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleCode',
+                toggleReform: toggle.checked
+            });
+            currrentState = await getToggleState('toggleCode');
+        }
     } catch (error) {
         console.log("Error:",message);
     }
 
-    let toggle = document.createElement("input");
     toggle.type = "checkbox";
     toggle.id = "toggleCode";
     
@@ -330,14 +425,22 @@ async function addCodeToggle(){
 async function addRelevanceToggle(){
     let lswitch = document.getElementById('relevanceSwitch');
     let currrentState = "";
-    
+    let toggle = document.createElement("input");
+
     try {
         currrentState = await getToggleState('toggleRelevance');
+        if (!currrentState){
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleRelevance',
+                toggleReform: toggle.checked
+            });
+            currrentState = await getToggleState('toggleRelevance');
+        }
     } catch (error) {
         console.log("Error:",message);
     }
 
-    let toggle = document.createElement("input");
     toggle.type = "checkbox";
     toggle.id = "toggleRelevance";
     
@@ -366,14 +469,22 @@ async function addRelevanceToggle(){
 async function addToxicToggle(){
     let lswitch = document.getElementById('toxicitySwitch');
     let currrentState = "";
-    
+    let toggle = document.createElement("input");
+
     try {
         currrentState = await getToggleState('toggleToxicity');
+        if (!currrentState){
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleToxicity',
+                toggleReform: toggle.checked
+            });
+            currrentState = await getToggleState('toggleToxicity');
+        }
     } catch (error) {
         console.log("Error:",message);
     }
 
-    let toggle = document.createElement("input");
     toggle.type = "checkbox";
     toggle.id = "toggleToxicity";
     
@@ -416,7 +527,6 @@ async function add_LLM_Reply_Area(){
 
     const divNode = document.createElement("div");
     divNode.id="popup-llm";
-    //divNode.classList = "d-flex flex-item-center";
     divNode.style.cssText = `
         display: none; 
         justify-content: space-between;
@@ -425,14 +535,13 @@ async function add_LLM_Reply_Area(){
         width: 100%;
         resize:none;
     `;
-    //divNode.style.width="-webkit-fill-available";
     
     divNode.innerHTML = `
-        <div style="flex-grow: 1;margin-right: 4px">
-            <textarea readonly id="llm-response" class="Box" style="min-height:32px; height:32px; width: 100%; resize:vertical; margin-right:2px;">No comments to reformulate</textarea>
+        <div style="flex-grow: 1;margin-right: 4px; margin-top:2px;">
+            <textarea readonly id="llm-response" class="Box" style="border: 2px solid #3b7fac; min-height:32px; height:35px; width: 100%; resize:vertical; margin-right:2px;">Waiting for LLM response ... </textarea>
         </div>
         <div>
-            <button type="button" class="preview_button btn-primary btn" id="copySuggestion"style="margin-right:2px;">Copy</button>
+            <button type="button" class="preview_button btn-primary btn" id="copySuggestion"style="margin-right:2px;background-color:#3b7fac;">Copy</button>
         </div>
     `;
     parentNode.children[0].style.width = "-webkit-fill-available";
@@ -473,7 +582,6 @@ function attachCopyEvent(){
     }
 }
 
-//todo change once LLM is integrated
 //Add event listener sur le texte area
 function attachTextAreaEvent(){
     let textarea = document.getElementById("new_comment_field");
@@ -501,7 +609,7 @@ function attachTextAreaEvent(){
             }
             updateTextArea(event.target.value); 
             if(event.target.value.length == 0){
-                resBox.value = "No comment to reformulate";
+                resBox.value = "Waiting on LLM to review comment";
             }
         }),1000);
 
@@ -522,14 +630,10 @@ function getTextOvertime(func,waitingFunc){
     }    
 }
 
-//Update the text area with given texte
+//todo change once LLM is integrated
+//Save with given texte
 async function updateTextArea(input){
     setCurrentComment(input);
-    await createPrompt();
-    // const responseBox = document.getElementById("llm-response");
-    // if(responseBox){
-    //     responseBox.value = input;
-    // }
 }
 
 var currentComment;
@@ -764,9 +868,30 @@ function getAllFileContent(){
 //
 
 async function createPrompt(){
-    var prompt = "";
-    let codeState = await getToggleState('toggleCode');
+    var idPrompt = await getPromptID();
+    var prompt = "You are a programmer reviewing and posting comments for a pull requests. \n";
+    let relevanceState = await getToggleState('toggleRelevance');
+    let toxicState = await getToggleState('toggleToxicity');
+    if(relevanceState === 'checked'){
+        //prompt += "Can you tell me if the comment is relevant? \n"
+        prompt += "Determine if a comment is relevant to the code changes or discussion at hand. \n"
 
+    }
+    if(toxicState === 'checked'){
+        //prompt += "Can you tell me if the comment is toxic? \n"
+        prompt += "Identify if the comment is toxic, unprofessional, or inappropriate in any way. \n"
+            
+    }
+    //Add comments to prompt
+    let comments = await getAllPullRequestComments();
+    if(comments){
+        prompt += "Past comments made on a Pull request : \n";
+        comments.forEach(comment => {
+            prompt += '"'+comment + '"\n';
+        });
+    }
+
+    let codeState = await getToggleState('toggleCode');
     //Add code element to prompt
     if(codeState === 'checked'){
         prompt += "Here are files that have been modified or added : \n";
@@ -774,43 +899,69 @@ async function createPrompt(){
         if(fileContent){
             fileContent.forEach(content =>{
                 var name = "File name : " + content.contentName + "\n";
-                var textContent = content.decodedContent + "\n\n";
+                var textContent = "code : \n" + content.decodedContent + "\n";
                 prompt += name + textContent;
             })
         }
-    }
-
-    //Add comments to prompt
-    let comments = await getAllPullRequestComments();
-    if(comments){
-        prompt += "Here are comments made on this PR : \n";
-        comments.forEach(comment => {
-            prompt += comment + "\n"
-
-        });
+        prompt += "End of code \n"
     }
 
     //Get current comment
-    prompt += "Here is a comment that will be posted : \n\n";
-    prompt += getCurrentComment() + "\n\n";
-
-    let relevanceState = await getToggleState('toggleRelevance');
-    let toxicState = await getToggleState('toggleToxicity');
-    if(relevanceState === 'checked'){
-        prompt += "Is this comment relevant to the context? \n"
-    }
-
-    if(toxicState === 'checked'){
-        prompt += "Is this comment toxic? \n"
-    }
-
+    prompt += "Comment to be posted: \n";
+    
+    prompt += "\""+getCurrentComment() + "\". \n";
+   
+ 
     let reformStat = await getToggleState("toggleReform");
     if(reformStat === 'checked'){
-        prompt += "Can you reformulate my comment? \n";
+        prompt += "Reformulate the comment to make it constructive and respectful for a professional code review.\n";
     }else{
-        prompt += "Return my comment as it is. \n";
+        prompt += "return my comment as it is.\n";
     }
-    return prompt;
+    return {"id":idPrompt,"promt":prompt};
 }
 
 //End Prompt creation
+
+//Connexion to API
+//
+//
+
+async function checkConnexion(){
+    const url = "http://127.0.0.1:80/connexion";
+    const response = await fetch(url);
+    return response.json();
+}
+
+var promptID = null;
+
+async function setPromptID(id){
+    promptID = id;
+}
+
+async function getPromptID(){
+    if(promptID==null){
+        await checkConnexion().then(response =>{
+            setPromptID(response.id);
+            return response.id;
+        }).catch((error)=>{
+            console.log(error);
+        });
+    }
+    return promptID;
+}
+
+
+async function postPrompt(data){
+    const url = "http://127.0.0.1:80/generate";
+    const response = await fetch(url,{
+        method: 'POST',
+        headers: {
+            'Content-Type':'application/json'
+        },
+        body:JSON.stringify(data)
+    });
+    return response.json();
+}
+
+//End Connexion to API
