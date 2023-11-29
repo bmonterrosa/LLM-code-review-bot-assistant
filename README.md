@@ -13,7 +13,7 @@ docker build -t xxx --file Dockerfile .
 
 xxx est le nom que vous devez choisir pour votre image.
 
-Ensuite, vous devez exécuter votre image dans un conteneur. Vous pouvez le ffaire avec la commande :
+Ensuite, vous devez exécuter votre image dans un conteneur. Vous pouvez le faire avec la commande :
 
 docker run -p 80:80 xxx
 
