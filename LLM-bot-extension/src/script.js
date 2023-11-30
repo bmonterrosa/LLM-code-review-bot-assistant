@@ -9,7 +9,7 @@ function observeDOM(){
         mutations.forEach(mutation =>{
             if(mutation.type === "childList" && mutation.addedNodes.length){
                 checkIcon();
-                attachTextAreaEvent();
+                //attachTextAreaEvent();
                 attachCopyEvent();
             }
         });
@@ -99,9 +99,15 @@ async function getResponse() {
         } catch (error) {}
     });
 }
+
 //Attach onclick event on LLM Icon
 function attachIconEvent(icon){
     icon.onclick = async function(event) {
+        chrome.runtime.sendMessage({
+            from: 'popup',
+            subject: 'llm_response',
+            response: "No response to display"
+        });
         event.stopPropagation();
         icon.onmouseover = function() {
             this.style.transform = "translateY(-10%) scale(1.1)";
@@ -109,7 +115,7 @@ function attachIconEvent(icon){
         icon.onmouseout = function() {
             this.style.transform = "translateY(-10%) scale(1)";
         };
-        const popup = document.getElementById('popup-llm');
+        var popup = document.getElementById('popup-llm');
         if (popup.style.display === 'none') {
             popup.style.display = 'flex';      
             let resBox = document.getElementById("llm-response");
@@ -147,18 +153,15 @@ function attachIconEvent(icon){
                     }else{
                         resBox.value = get_llm_response();
                     }
-                    popup.style.display = 'flex';
 
                 }).catch((error) => {
                     console.log(error);
                 })
             })
-
-        } else {
-            popup.style.display = 'none';
-        }
+         } else {
+             popup.style.display = 'none';
+         }
     };
-    //updateIconVisibility();
 }
 
 //Update the visibility of the LLM Icon
@@ -189,7 +192,7 @@ async function updateIconVisibility() {
 async function setupNav(){
     observeDOM();
     checkIcon();
-    attachTextAreaEvent();
+    //attachTextAreaEvent();
     attachCopyEvent();
     updateIconVisibility();
 }
@@ -200,7 +203,6 @@ document.addEventListener('pjax:end',setupNav);
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setupNav);
-    chrome.storage.sync.set({ [request.subject]: "No response to display"});
 } else {
     setupNav();
 }
@@ -247,10 +249,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     var resp = await getResponse();
+    document.getElementById('full-llm-response').height = 'auto';
     if(resp){
         document.getElementById('full-llm-response').display = 'block';
         document.getElementById('full-llm-response').value = resp;
-        document.getElementById('full-llm-response').height = 'max-content';
+        //
     }else{
         document.getElementById('full-llm-response').display = 'none';
     }
@@ -584,38 +587,33 @@ function attachCopyEvent(){
 
 //Add event listener sur le texte area
 function attachTextAreaEvent(){
-    let textarea = document.getElementById("new_comment_field");
-    let resBox = document.getElementById("llm-response")
-    if(textarea){
-        let area = document.getElementById("popup-llm");
-        //EventListeners for when user gets out of textarea
-        textarea.addEventListener('change', function(event) {
-            updateTextArea(event.target.value);
-            if(area){
-                area.style.display = "none";
-            }
-        });
-        textarea.addEventListener('blur', function(event) {
-            updateTextArea(event.target.value);
-            if(area){
-                area.style.display = "none";
-            }
-        });
+     let textarea = document.getElementById("new_comment_field");
+//     let resBox = document.getElementById("llm-response")
+     if(textarea){
+//         let area = document.getElementById("popup-llm");
+//         //EventListeners for when user gets out of textarea
+         textarea.addEventListener('change', function(event) {
+             updateTextArea(event.target.value);
+//             if(area){
+//                 area.style.display = "none";
+//             }
+         });
+         textarea.addEventListener('blur', function(event) {
+             updateTextArea(event.target.value);
+
+         });
 
         //EventListeners for when user is done writing, get the text is delayed
-        textarea.addEventListener('input', getTextOvertime(function(event) {
-            if(area){
-                area.style.display = "none";
-            }
-            updateTextArea(event.target.value); 
-            if(event.target.value.length == 0){
+         textarea.addEventListener('input', getTextOvertime(function(event) {
+             updateTextArea(event.target.value); 
+             if(event.target.value.length == 0){
                 resBox.value = "Waiting on LLM to review comment";
             }
-        }),1000);
+         }),1000);
 
        
-    }
-}
+     }
+ }
 
 //Function to delay the get of the input
 function getTextOvertime(func,waitingFunc){
@@ -927,9 +925,13 @@ async function createPrompt(){
 //
 //
 
+var url = 'http://127.0.0.1:80/';
+function setURL(input){
+    url = input
+} 
+
 async function checkConnexion(){
-    const url = "http://127.0.0.1:80/connexion";
-    const response = await fetch(url);
+    const response = await fetch(url+"connexion");
     return response.json();
 }
 
@@ -953,8 +955,7 @@ async function getPromptID(){
 
 
 async function postPrompt(data){
-    const url = "http://127.0.0.1:80/generate";
-    const response = await fetch(url,{
+    const response = await fetch(url+"generate",{
         method: 'POST',
         headers: {
             'Content-Type':'application/json'
