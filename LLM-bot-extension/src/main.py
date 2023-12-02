@@ -2,8 +2,15 @@ from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from langchain import PromptTemplate
+from langchain.chains import LLMChain
+from langchain.llms import HuggingFacePipeline
+
+import transformers
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from torch import cuda
+
+from huggingface_hub import login
 
 from uuid import uuid4
 from pydantic import BaseModel
@@ -11,7 +18,8 @@ from pydantic import BaseModel
 import time
 
 device = f'cuda:{cuda.current_device()}' if cuda.is_available() else 'cpu'
-model_id = "codellama/CodeLlama-7b-Instruct-hf"
+model_id = "meta-llama/Llama-2-7b-chat-hf"
+#model_id = "EleutherAI/gpt-neo-2.7B"
 # tokenizer = AutoTokenizer.from_pretrained(model_id)
 # model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="auto")
 tokenizer = ""
@@ -19,7 +27,29 @@ model = ""
 
 save_dir = "/models"
 
-historique = {}
+# Instruction how the LLM must respond the comments,
+prompt_template = """
+{requete}
+Response:
+"""
+
+#Create the prompt template to use in the Chain for the first Model.
+assistant_prompt_template = PromptTemplate(
+    input_variables=["requete"],
+    template=prompt_template
+)
+
+assistant_chain = ""
+
+def create_dialog(customer_request):
+    assistant_response = assistant_chain.run(
+        {"requete": customer_request}
+    )
+    return assistant_response
+
+
+hf_key = "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"
+login(hf_key)
 
 app = FastAPI()
 
@@ -46,12 +76,45 @@ def read_root():
 def premier_demarrage():
     global model
     global tokenizer
+    global assistant_chain
 
-    model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="auto")
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    model_config = transformers.AutoConfig.from_pretrained(
+        model_id,
+        token=hf_key
+    )
 
-    tokenizer.save_pretrained(save_dir)
-    model.save_pretrained(save_dir)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        trust_remote_code=True,
+        config=model_config,
+        device_map='auto',
+        token=hf_key
+    )
+    tokenizer = AutoTokenizer.from_pretrained(model_id, use_aut_token=hf_key)
+
+    pipe = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        max_new_tokens=128,
+        temperature=0.3,
+        #repetition_penalty=1.1,
+        return_full_text=True,
+        device_map='auto',
+        eos_token_id = int(tokenizer.convert_tokens_to_ids('.')),
+    )
+
+    assistant_llm = HuggingFacePipeline(pipeline=pipe)
+
+    assistant_chain = LLMChain(
+        llm=assistant_llm,
+        prompt=assistant_prompt_template,
+        output_key="assistant_response",
+        verbose=False
+    )
+
+    #tokenizer.save_pretrained(save_dir)
+    #model.save_pretrained(save_dir)
     print(device)
     return {"Page": "Premier demarrage"}
 
@@ -70,34 +133,19 @@ def demarrage_volume():
 @app.get("/connexion")
 def create_session():
     session = uuid4()
-    global historique
-
-    #historique[session] = list[tuple[str, str]]
 
     return {"id": session}
 
-
-@app.get("/deconnexion")
-def deconnexion():
-    print('deconnexion')
 
 
 @app.post("/generate")
 def generate(request: PromtRequest):
     start_time = time.time()
-    prompt = f"<s>[INST] {request.promt.strip()} [/INST]"
-    inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=False).to(device)
-
-    output = model.generate(
-        **inputs,
-        max_new_tokens=500,
-        eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
-    )
-    output = output[0].to(device)
-
-    print(tokenizer.decode(output))
+    assistant_response=create_dialog(request.promt.strip())
+    
+    print(assistant_response)
     print('--- %s secondes ---' % (time.time() - start_time))
-    return {"result": tokenizer.decode(output)}
+    return {"result": assistant_response}
 
 
 @app.get("/gen")
@@ -117,16 +165,8 @@ def test_generate():
 
     Is this a relevant and respectful review comment for this code?
     """
-    prompt = f"<s>[INST] {user.strip()} [/INST]"
-    inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=False).to(device)
+    assistant_response=create_dialog(user)
 
-    output = model.generate(
-        **inputs,
-        max_new_tokens=200,
-        eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
-    )
-    output = output[0].to(device)
-
-    print(tokenizer.decode(output))
+    print(assistant_response)
     print('--- %s secondes ---' % (time.time() - start_time))
-    return {"result": tokenizer.decode(output)}
+    return {"result": assistant_response}
