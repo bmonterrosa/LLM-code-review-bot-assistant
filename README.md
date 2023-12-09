@@ -1,4 +1,4 @@
-# pfe-LLM-bot-template
+# LLM-code-review-bot-assistant
 Pour exécuté l'extension avec le LLM par défault il faut lancer le conteneur Docker qui l'exécute. Voici les différentes pour faire fonctionner l'extension.
 
 ## Partie extension
