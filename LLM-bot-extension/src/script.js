@@ -9,7 +9,6 @@ function observeDOM(){
         mutations.forEach(mutation =>{
             if(mutation.type === "childList" && mutation.addedNodes.length){
                 checkIcon();
-                //attachTextAreaEvent();
                 attachCopyEvent();
             }
         });
@@ -102,6 +101,12 @@ async function getResponse() {
 
 //Attach onclick event on LLM Icon
 function attachIconEvent(icon){
+    icon.onmouseover = function() {
+        this.style.transform = "translateY(-10%) scale(1.1)";
+    };
+    icon.onmouseout = function() {
+        this.style.transform = "translateY(-10%) scale(1)";
+    };
     icon.onclick = async function(event) {
         chrome.runtime.sendMessage({
             from: 'popup',
@@ -109,12 +114,6 @@ function attachIconEvent(icon){
             response: "No response to display"
         });
         event.stopPropagation();
-        icon.onmouseover = function() {
-            this.style.transform = "translateY(-10%) scale(1.1)";
-        };
-        icon.onmouseout = function() {
-            this.style.transform = "translateY(-10%) scale(1)";
-        };
         var popup = document.getElementById('popup-llm');
         if (popup.style.display === 'none') {
             popup.style.display = 'flex';      
@@ -158,9 +157,10 @@ function attachIconEvent(icon){
                     console.log(error);
                 })
             })
-         } else {
-             popup.style.display = 'none';
-         }
+        } else {
+            popup.style.display = 'none';
+        }
+        updateIconVisibility();
     };
 }
 
@@ -192,7 +192,7 @@ async function updateIconVisibility() {
 async function setupNav(){
     observeDOM();
     checkIcon();
-    //attachTextAreaEvent();
+    attachTextAreaEvent();
     attachCopyEvent();
     updateIconVisibility();
 }
@@ -224,7 +224,6 @@ function openTab(tabName) {
 
 //Extension eventListener
 document.addEventListener('DOMContentLoaded', async function() {
-    updateTextArea();
     //Check if on github
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
         if (tabs && tabs[0] && tabs[0].url) {
@@ -253,7 +252,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     if(resp){
         document.getElementById('full-llm-response').display = 'block';
         document.getElementById('full-llm-response').value = resp;
-        //
     }else{
         document.getElementById('full-llm-response').display = 'none';
     }
@@ -263,7 +261,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     //Add settings Toggle
     addReformToggle();
     addStatusToggle();
-    updateIconVisibility();
 
     addCodeToggle()
     addRelevanceToggle()
@@ -588,19 +585,19 @@ function attachCopyEvent(){
 //Add event listener sur le texte area
 function attachTextAreaEvent(){
      let textarea = document.getElementById("new_comment_field");
-//     let resBox = document.getElementById("llm-response")
      if(textarea){
-//         let area = document.getElementById("popup-llm");
-//         //EventListeners for when user gets out of textarea
+        //EventListeners for when user gets out of textarea
          textarea.addEventListener('change', function(event) {
              updateTextArea(event.target.value);
-//             if(area){
-//                 area.style.display = "none";
-//             }
+            if(area){
+                area.style.display = "none";
+            }
          });
          textarea.addEventListener('blur', function(event) {
              updateTextArea(event.target.value);
-
+             if(area){
+                area.style.display = "none";
+            }
          });
 
         //EventListeners for when user is done writing, get the text is delayed
@@ -628,7 +625,6 @@ function getTextOvertime(func,waitingFunc){
     }    
 }
 
-//todo change once LLM is integrated
 //Save with given texte
 async function updateTextArea(input){
     setCurrentComment(input);
@@ -677,11 +673,6 @@ chrome.runtime.onMessage.addListener(async function(request, sender, sendRespons
         updateIconVisibility();
         sendResponse({result: "UpdatedIcon"});
     }
-    
-    let area = document.getElementById("popup-llm");
-    if(area){
-        area.style.display = "none";
-    }
 
     return true;
 });
@@ -690,8 +681,8 @@ chrome.runtime.onMessage.addListener(async function(request, sender, sendRespons
 //
 //
 
-//PAT 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
-var token = "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";
+//PrivateAccessToken
+var token = "";
 var headers = {
     'Authorization': `token ${token}`,
 }
@@ -713,7 +704,6 @@ function addEventSaveToken(){
         let tokenText = document.getElementById("github_Token");
         if(tokenText.value){
             setToken(tokenText.value);
-            //console.log(getToken());
         }
     });
 }
@@ -734,7 +724,6 @@ async function getPullRequestComments() {
             });
             return Promise.all(comments);
         } catch (error) {
-            //console.error('Failed to fetch comments:', error);
         }
     }else{
         alert("No Personal access token detected!")
@@ -780,7 +769,6 @@ async function getPullRequestFiles() {
             const files = await response.json();
             return files;
         } catch (error) {
-            //console.error('Failed to get PR:', error);
         }
     }else{
         alert("No Personal access token detected!")
@@ -809,12 +797,10 @@ async function getFileRawContent(files) {
             const decodedContent = atob(content.content);
             
             return {contentName,decodedContent} ;
-           
         });
 
         return Promise.all(fileContentsPromises);
     } catch (error) {
-        //console.error('Failed to fetch file contents:', error);
     }
 }
 
@@ -871,12 +857,10 @@ async function createPrompt(){
     let relevanceState = await getToggleState('toggleRelevance');
     let toxicState = await getToggleState('toggleToxicity');
     if(relevanceState === 'checked'){
-        //prompt += "Can you tell me if the comment is relevant? \n"
         prompt += "Determine if a comment is relevant to the code changes or discussion at hand. \n"
 
     }
     if(toxicState === 'checked'){
-        //prompt += "Can you tell me if the comment is toxic? \n"
         prompt += "Identify if the comment is toxic, unprofessional, or inappropriate in any way. \n"
             
     }
