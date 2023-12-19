@@ -35,6 +35,8 @@ Lorsque le conteneur est en exécution, il faut lancer le chargement du LLM avec
 À partir de maintenant, le LLM est opérationnel et peut recevoir les requêtes de l'extension. 
 
 ## Pipeline CI/CD
-Le fichier .github/workflows/build-test-app.yml contient le workflow pipeline CI/CD. Le pipeline a pour but de faire du linting, exécuter des tests et créer et publier l'image Docker vers DockerHub. Si vous désirez l'utiliser, vous devez éditer le fichier et ajouter quelques attributs manquants. On suggère fortement que vous gardiez votre nom d'utilisateur et votre mot de passe dans des Github Secrets et que vous les réutilisiez comme des variables. 
+Le fichier .github/workflows/build-test-app.yml contient le workflow pipeline CI/CD. Le pipeline a pour but de faire du linting, exécuter des tests et créer et publier l'image Docker vers DockerHub. Si vous désirez l'utiliser, vous devez éditer le fichier et ajouter quelques attributs manquants. On suggère fortement que vous gardiez votre nom d'utilisateur et votre mot de passe dans des Github Secrets et que vous les réutilisiez comme des variables. Assurez-vous que le workflow est activé dans le tab Actions.
 
 Le répertoire tests ne contient aucuns tests, mais la librairie Pytest qui est utilisé détecte automatiquement les tests dans ce répertoire et les exécutent donc vous avez juste à ajouer des tests dans ce répertoire.
+
+Pour plus d'informations sur les actions utilisées, veuillez consulter leurs documentation dans le GitHub Marketplace.
