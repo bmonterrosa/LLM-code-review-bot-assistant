@@ -48,7 +48,7 @@ def create_dialog(customer_request):
     return assistant_response
 
 
-hf_key = "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"
+hf_key = "Mettez votre jeton HuggingFaces ici"
 login(hf_key)
 
 app = FastAPI()
