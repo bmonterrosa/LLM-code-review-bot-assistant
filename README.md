@@ -17,6 +17,8 @@ Si plus de détails sur la requête sont fournis, ils seront inscrits dans l'ext
 
 ## Partie LLM
 
+Il est important d'ajouter le jeton HuggingFace pour utiliser Llama2. Il faut l'ajouter dans src/main.py dans la variable hg_key.
+
 Pour faire fonctionner le LLM de l'extension, nous avons besoin d'être capable d'exécuter des conteneurs Docker. Vous pouvez utilisé Docker desktop : https://www.docker.com/products/docker-desktop/ .
 
 Vous devez build l'image avec la commande : 
