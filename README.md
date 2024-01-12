@@ -21,17 +21,20 @@ Pour faire fonctionner le LLM de l'extension, nous avons besoin d'être capable 
 
 Vous devez build l'image avec la commande : 
 
+```
 docker build -t xxx --file Dockerfile .
-
-xxx est le nom que vous devez choisir pour votre image.
+```
+```xxx ``` est le nom que vous devez choisir pour votre image.
 
 Ensuite, vous devez exécuter votre image dans un conteneur. Vous pouvez le faire avec la commande :
 
+```
 docker run -p 80:80 xxx
+```
 
 Vous pouvez changer le port d'exécution, mais il faut aussi faire les changements dans le Dockerfile à la dernière ligne.
 
-Lorsque le conteneur est en exécution, il faut lancer le chargement du LLM avec la requête HTTP 127.0.0.1/premierdem.
+Lorsque le conteneur est en exécution, il faut lancer le chargement du LLM avec la requête HTTP ```127.0.0.1/premierdem```.
 À partir de maintenant, le LLM est opérationnel et peut recevoir les requêtes de l'extension. 
 
 ## Pipeline CI/CD
