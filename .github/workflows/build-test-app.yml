@@ -30,7 +30,7 @@ jobs:
             conda install pytest
             pytest
       - name: Build and push Docker image
-        uses: docker/docker-build-push@v6
+        uses: docker/build-push-action@v2
         with:
           context: .
           push: true
