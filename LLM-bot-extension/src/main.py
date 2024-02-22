@@ -14,6 +14,7 @@ device = f'cuda:{cuda.current_device()}' if cuda.is_available() else 'cpu'
 model_id = "codellama/CodeLlama-7b-Instruct-hf"
 # tokenizer = AutoTokenizer.from_pretrained(model_id)
 # model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="auto")
+#test
 tokenizer = ""
 model = ""
 
