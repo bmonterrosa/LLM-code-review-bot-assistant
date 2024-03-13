@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 # tokenizer = AutoTokenizer.from_pretrained(model_id)
 # model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="auto")
-#test
+# test
 tokenizer = ""
 model = ""
 
@@ -34,23 +34,26 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    #allow_origins=["https://github.com"],
+    # allow_origins=["https://github.com"],
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
+
 class PromtRequest(BaseModel):
     id: str
     promt: str
 
+
 def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
     global model
     global tokenizer
-    if(os.path.exists(save_dir + model_id)):
+    if (os.path.exists(save_dir + model_id)):
         logger.info("Loading model and tokenizer from local files")
-        model = auto_model.from_pretrained(save_dir + model_id, torch_dtype="auto", device_map='auto', token=access_token)
+        model = auto_model.from_pretrained(save_dir + model_id, torch_dtype="auto", device_map='auto',
+                                           token=access_token)
         tokenizer = auto_tokenizer.from_pretrained(save_dir + model_id)
         logger.info("Loading from local files complete.")
     else:
@@ -62,8 +65,9 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
         tokenizer.save_pretrained(save_dir + model_id)
         logger.info("Successfully saved model and tokenizer to volume.")
 
+
 @app.get("/")
-def read_root():
+def test_read_root():
     return {"Hello": "World"}
 
 
@@ -74,12 +78,13 @@ def premier_demarrage():
     print(device)
     return {"Page": "Premier demarrage"}
 
+
 @app.get("/connexion")
 def create_session():
     session = uuid4()
     global historique
 
-    #historique[session] = list[tuple[str, str]]
+    # historique[session] = list[tuple[str, str]]
 
     return {"id": session}
 
@@ -138,12 +143,14 @@ def test_generate():
     print('--- %s secondes ---' % (time.time() - start_time))
     return {"result": tokenizer.decode(output)}
 
+
 @app.get("/testsavebasic")
 def test_save():
     test_file = open(save_dir + 'testfile.txt', 'w')
     test_file.write('Hello world')
     logger.info(str(os.path.abspath(test_file.name)))
     test_file.close()
+
 
 @app.get("/testreadbasic")
 def test_save():
@@ -152,10 +159,11 @@ def test_save():
     logger.info(os.path.abspath(test_file.name))
     test_file.close()
 
+
 @app.get("/testsaveadvanced")
 def test_save():
     model_id = "NlpHUST/gpt-neo-vi-small"
-    if(os.path.exists(save_dir + model_id)):
+    if (os.path.exists(save_dir + model_id)):
         logger.info("Loading model and tokenizer from local files")
         model = GPTNeoForCausalLM.from_pretrained(save_dir + model_id)
         tokenizer = GPT2Tokenizer.from_pretrained(save_dir + model_id)
@@ -168,7 +176,8 @@ def test_save():
         model.save_pretrained(save_dir + model_id)
         tokenizer.save_pretrained(save_dir + model_id)
         logger.info("Successfully saved model and tokenizer to volume.")
-    
+
+
 @app.get("/testsavefinal")
 def test_save():
     get_model_and_tokenizer("NlpHUST/gpt-neo-vi-small", GPTNeoForCausalLM, GPT2Tokenizer)
