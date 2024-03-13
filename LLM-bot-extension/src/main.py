@@ -45,6 +45,8 @@ class PromtRequest(BaseModel):
     promt: str
 
 def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
+    global model
+    global tokenizer
     if(os.path.exists(save_dir + model_id)):
         logger.info("Loading model and tokenizer from local files")
         model = auto_model.from_pretrained(save_dir + model_id)
