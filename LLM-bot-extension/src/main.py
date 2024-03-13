@@ -14,6 +14,9 @@ import os.path
 
 device = f'cuda:{cuda.current_device()}' if cuda.is_available() else 'cpu'
 
+# INSERT HUGGINGFACE ACCESS TOKEN WITH WRITE PERMISSION HERE
+access_token = ""
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,12 +50,12 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
     global tokenizer
     if(os.path.exists(save_dir + model_id)):
         logger.info("Loading model and tokenizer from local files")
-        model = auto_model.from_pretrained(save_dir + model_id, torch_dtype="auto", device_map='auto')
+        model = auto_model.from_pretrained(save_dir + model_id, torch_dtype="auto", device_map='auto', token=access_token)
         tokenizer = auto_tokenizer.from_pretrained(save_dir + model_id)
         logger.info("Loading from local files complete.")
     else:
         logger.info("Model and tokenizer not found locally. Downloading...")
-        model = auto_model.from_pretrained(model_id, torch_dtype="auto", device_map='auto')
+        model = auto_model.from_pretrained(model_id, torch_dtype="auto", device_map='auto', token=access_token)
         tokenizer = auto_tokenizer.from_pretrained(model_id)
         logger.info("Download complete. Saving models to volume " + save_dir + model_id)
         model.save_pretrained(save_dir + model_id)
