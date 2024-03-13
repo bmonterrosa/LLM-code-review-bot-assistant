@@ -12,9 +12,7 @@ import time
 import logging
 import os.path
 
-
 device = f'cuda:{cuda.current_device()}' if cuda.is_available() else 'cpu'
-model_id = "codellama/CodeLlama-7b-Instruct-hf"
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -49,12 +47,12 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
     global tokenizer
     if(os.path.exists(save_dir + model_id)):
         logger.info("Loading model and tokenizer from local files")
-        model = auto_model.from_pretrained(save_dir + model_id)
+        model = auto_model.from_pretrained(save_dir + model_id, torch_dtype="auto", device_map='auto')
         tokenizer = auto_tokenizer.from_pretrained(save_dir + model_id)
         logger.info("Loading from local files complete.")
     else:
         logger.info("Model and tokenizer not found locally. Downloading...")
-        model = auto_model.from_pretrained(model_id)
+        model = auto_model.from_pretrained(model_id, torch_dtype="auto", device_map='auto')
         tokenizer = auto_tokenizer.from_pretrained(model_id)
         logger.info("Download complete. Saving models to volume " + save_dir + model_id)
         model.save_pretrained(save_dir + model_id)
@@ -68,24 +66,10 @@ def read_root():
 
 @app.get("/premierdem")
 def premier_demarrage():
-    global model
-    global tokenizer
-
+    model_id = "stabilityai/stablelm-3b-4e1t"
     get_model_and_tokenizer(model_id, AutoModelForCausalLM, AutoTokenizer)
     print(device)
     return {"Page": "Premier demarrage"}
-
-# marche pas
-@app.get("/demarrage")
-def demarrage_volume():
-    global model
-    global tokenizer
-
-    model = AutoModelForCausalLM.from_pretrained("./models/")
-    tokenizer = AutoTokenizer.from_pretrained("./models/")
-
-    return {"Page": "demarrage"}
-
 
 @app.get("/connexion")
 def create_session():
