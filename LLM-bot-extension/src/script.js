@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     addEventSaveToken()
 });
 
-// Toggles state listener
+// Toggle state listener
 chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
     let icon = document.getElementById('LLM_Icon');
     //Update toggle state
