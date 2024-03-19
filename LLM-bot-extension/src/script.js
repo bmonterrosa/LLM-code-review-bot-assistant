@@ -1,201 +1,16 @@
 let observer = null;
-// Watch changes in the DOM
-// Runs when something happens on the page
-function observeDOM(){
-    if(observer){
-        observer.disconnect();
-    }
-    observer = new MutationObserver(mutations => {
-        mutations.forEach(mutation =>{
-            if(mutation.type === "childList" && mutation.addedNodes.length){
-                checkIcon();
-                attachCopyEvent();
-            }
-        });
-    });
-    
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
+var llmResponse = "";
+var currentComment;
+var url = 'http://127.0.0.1:80/';
+var promptID = null;
+var token = "";
+var headers = {
+    'Authorization': `token ${token}`,
 }
 
-//Icon functions
-//
-//
 
-//Check if icon exists
-function checkIcon(){
-    const newCommentField = document.getElementById("new_comment_field");
-    let icon = document.getElementById("LLM_Icon");
-    if(newCommentField && !icon){
-        addIconOverCommentBox();
-    }
-    if(icon){
-        attachIconEvent(icon);
-    }
-}
 
-//Add Icon over github comment box
-async function addIconOverCommentBox(){
-    let textarea = document.getElementById("new_comment_field");
-    if(textarea){
-        try {
-            //add a function to add the text area
-            add_LLM_Reply_Area();
-            //Creating the LLM icon
-            let icon = document.createElement('img');
-            icon.id = "LLM_Icon";
-            icon.alt = "Icon";
-            icon.src = chrome.runtime.getURL("icon/LLM-bot-NoBackground.png");
-        
-            icon.onmouseover = function() {
-                this.style.transform = "translateY(-10%) scale(1.1)";
-            };
-            icon.onmouseout = function() {
-                this.style.transform = "translateY(-10%) scale(1)";
-            };
-
-            icon.style.cssText = `
-                pointer-events: auto;
-                cursor: pointer;
-                position: absolute;
-                right: 10px;
-                top: 50%;
-                transform: translateY(-10%);
-                z-index: 1000;`
-            ;
-            
-            attachIconEvent(icon);
-
-            textarea.parentElement.style.position = "relative";
-            textarea.parentElement.appendChild(icon);
-            updateIconVisibility();
-        } catch (error) {
-        }
-    }
-}
-
-var llm_response = "";
-function save_llm_response(input){
-    llm_response = input;
-}
-
-function get_llm_response(){
-    return llm_response;
-}
-
-async function getResponse() {
-    return new Promise((resolve, reject) => {
-        try {
-            chrome.storage.local.get('llm_response', function(result) {
-                if (chrome.runtime.lastError) {
-                    reject(chrome.runtime.lastError);
-                } else {
-                    resolve(result['llm_response']);
-                }
-            });
-        } catch (error) {}
-    });
-}
-
-//Attach onclick event on LLM Icon
-function attachIconEvent(icon){
-    icon.onmouseover = function() {
-        this.style.transform = "translateY(-10%) scale(1.1)";
-    };
-    icon.onmouseout = function() {
-        this.style.transform = "translateY(-10%) scale(1)";
-    };
-    icon.onclick = async function(event) {
-        chrome.runtime.sendMessage({
-            from: 'popup',
-            subject: 'llm_response',
-            response: "No response to display"
-        });
-        event.stopPropagation();
-        var popup = document.getElementById('popup-llm');
-        if (popup.style.display === 'none') {
-            popup.style.display = 'flex';      
-            let resBox = document.getElementById("llm-response");
-
-            //Add a buffering effect to the response box
-            let dotCount = 0;
-            const maxDots = 3;
-            const interval = 500;
-
-            const intervalId = setInterval(() => {
-                dotCount = (dotCount + 1) % (maxDots + 1);
-                resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
-            }, interval);
-
-            //Send request to LLM
-            await createPrompt().then(async data =>{
-                await postPrompt(data).then(response => {
-                    clearInterval(intervalId);
-
-                    var res = response.result.toString();
-                    var splitText = res.split('INST]');
-                    //to remove
-                    console.log(res);
-
-                    save_llm_response(splitText[splitText.length-1]);
-
-                    chrome.runtime.sendMessage({
-                        from: 'popup',
-                        subject: 'llm_response',
-                        response: get_llm_response()
-                    });
-
-                    if(splitText[splitText.length-1].split('"')[1]){
-                        resBox.value = splitText[splitText.length-1].split('"')[1];
-                    }else{
-                        resBox.value = get_llm_response();
-                    }
-
-                }).catch((error) => {
-                    console.log(error);
-                })
-            })
-        } else {
-            popup.style.display = 'none';
-        }
-        updateIconVisibility();
-    };
-}
-
-//Update the visibility of the LLM Icon
-async function updateIconVisibility() {
-    var icon = document.getElementById("LLM_Icon");
-    var textarea = document.getElementById("popup-llm")
-    let currrentState = "";
-    if(icon){
-        try {
-            currrentState = await getToggleState('toggleState');
-            if (currrentState === "checked") {
-                icon.style.display = 'block'; 
-            } else {
-                icon.style.display = 'none';
-                textarea.style.display = 'none';
-            }
-        } catch (error) {
-            console.log("Error:",error);
-        }
-    }
-}
-
-//End of Icon
-//
-//
-
-//watch changed when selecting differents tabs in github Single Application Page (SAP)
-async function setupNav(){
-    observeDOM();
-    checkIcon();
-    attachTextAreaEvent();
-    attachCopyEvent();
-    updateIconVisibility();
-}
+// ---------- LISTENERS ----------
 
 window.addEventListener('popstate',setupNav);
 window.addEventListener('hashchange',setupNav);
@@ -207,22 +22,7 @@ if (document.readyState === 'loading') {
     setupNav();
 }
 
-//Function pour changer le contenu de l'extension
-function openTab(tabName) {
-    var i, tabcontent, tablinks;
-    tabcontent = document.getElementsByClassName("tabcontent");
-    for (i = 0; i < tabcontent.length; i++) {
-        tabcontent[i].style.display = "none";
-    }
-    tablinks = document.getElementsByClassName("tablinks");
-    for (i = 0; i < tablinks.length; i++) {
-        tablinks[i].classList.remove("active");
-    }
-    document.getElementById(tabName).style.display = "block";
-    document.getElementById(tabName.toLowerCase() + 'Tab').classList.add("active");
-}
-
-//Extension eventListener
+// Extension listener
 document.addEventListener('DOMContentLoaded', async function() {
     //Check if on github
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
@@ -269,11 +69,262 @@ document.addEventListener('DOMContentLoaded', async function() {
     addEventSaveToken()
 });
 
-//Toggle switches functions
-//
-//
+// Toggles state listener
+chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
+    let icon = document.getElementById('LLM_Icon');
+    //Update toggle state
+    if(icon&&(request.toggleState == true || request.toggleState == false)){
+        icon.style.display = request.toggleState ? 'block' : 'none';
+        let state = request.toggleState ? "checked" : "not_checked";
+        try {
+            await chrome.storage.sync.set({ 'toggleState': state });
+            updateIconVisibility()
 
-//Get the state enable/disable of the extension
+        } catch (error) {
+            console.log("Error:",error);
+        }
+    }
+
+    //Handle toggle reform comment state
+    let copyButton = document.getElementById("copySuggestion");
+    if(copyButton && request.toggleReform != null){
+        if(request.toggleReform){
+            copyButton.style.display = "flex";
+        }else if(!request.toggleReform){
+            copyButton.style.display = "none";
+        }
+    }
+    
+    //Update Icon when changing tabs 
+    if(request.action === "updateIconOnTabChange"){
+        updateIconVisibility();
+        sendResponse({result: "UpdatedIcon"});
+    }
+
+    return true;
+});
+
+
+
+
+// ---------- GENERAL FUNCTIONS ----------
+
+// Watch changes in the DOM
+function observeDOM(){
+    if(observer){
+        observer.disconnect();
+    }
+    observer = new MutationObserver(mutations => {
+        mutations.forEach(mutation =>{
+            if(mutation.type === "childList" && mutation.addedNodes.length){
+                checkIcon();
+                attachCopyEvent();
+            }
+        });
+    });
+    
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+}
+
+// Change extension content
+function openTab(tabName) {
+    var i, tabcontent, tablinks;
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("active");
+    }
+    document.getElementById(tabName).style.display = "block";
+    document.getElementById(tabName.toLowerCase() + 'Tab').classList.add("active");
+}
+
+// Watch changed when selecting differents tabs in github Single Application Page (SAP)
+async function setupNav(){
+    observeDOM();
+    checkIcon();
+    attachTextAreaEvent();
+    attachCopyEvent();
+    updateIconVisibility();
+}
+
+
+
+
+// ---------- ICONS FUNCTIONS ----------
+
+// Check if icon exists
+function checkIcon(){
+    const newCommentField = document.getElementById("new_comment_field");
+    let icon = document.getElementById("LLM_Icon");
+    if(newCommentField && !icon){
+        addIconOverCommentBox();
+    }
+    if(icon){
+        attachIconEvent(icon);
+    }
+}
+
+// Add Icon over github comment box
+async function addIconOverCommentBox(){
+    let textarea = document.getElementById("new_comment_field");
+    if(textarea){
+        try {
+            //add a function to add the text area
+            add_LLM_Reply_Area();
+            //Creating the LLM icon
+            let icon = document.createElement('img');
+            icon.id = "LLM_Icon";
+            icon.alt = "Icon";
+            icon.src = chrome.runtime.getURL("icon/LLM-bot-NoBackground.png");
+        
+            icon.onmouseover = function() {
+                this.style.transform = "translateY(-10%) scale(1.1)";
+            };
+            icon.onmouseout = function() {
+                this.style.transform = "translateY(-10%) scale(1)";
+            };
+
+            icon.style.cssText = `
+                pointer-events: auto;
+                cursor: pointer;
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-10%);
+                z-index: 1000;`
+            ;
+            
+            attachIconEvent(icon);
+
+            textarea.parentElement.style.position = "relative";
+            textarea.parentElement.appendChild(icon);
+            updateIconVisibility();
+        } catch (error) {
+        }
+    }
+}
+
+// LLMResponse setter
+function saveLLMResponse(input){
+    llmResponse = input;
+}
+
+// LLMResponse getter
+function getLLMResponse(){
+    return llmResponse;
+}
+
+// Get the response from local storage
+async function getResponse() {
+    return new Promise((resolve, reject) => {
+        try {
+            chrome.storage.local.get('llmResponse', function(result) {
+                if (chrome.runtime.lastError) {
+                    reject(chrome.runtime.lastError);
+                } else {
+                    resolve(result['llmResponse']);
+                }
+            });
+        } catch (error) {}
+    });
+}
+
+// Attach onclick event on LLM Icon
+function attachIconEvent(icon){
+    icon.onmouseover = function() {
+        this.style.transform = "translateY(-10%) scale(1.1)";
+    };
+    icon.onmouseout = function() {
+        this.style.transform = "translateY(-10%) scale(1)";
+    };
+    icon.onclick = async function(event) {
+        chrome.runtime.sendMessage({
+            from: 'popup',
+            subject: 'llmResponse',
+            response: "No response to display"
+        });
+        event.stopPropagation();
+        var popup = document.getElementById('popup-llm');
+        if (popup.style.display === 'none') {
+            popup.style.display = 'flex';      
+            let resBox = document.getElementById("llm-response");
+
+            //Add a buffering effect to the response box
+            let dotCount = 0;
+            const maxDots = 3;
+            const interval = 500;
+
+            const intervalId = setInterval(() => {
+                dotCount = (dotCount + 1) % (maxDots + 1);
+                resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
+            }, interval);
+
+            //Send request to LLM
+            await createPrompt().then(async data =>{
+                await postPrompt(data).then(response => {
+                    clearInterval(intervalId);
+
+                    var res = response.result.toString();
+                    var splitText = res.split('INST]');
+                    //to remove
+                    console.log(res);
+
+                    saveLLMResponse(splitText[splitText.length-1]);
+
+                    chrome.runtime.sendMessage({
+                        from: 'popup',
+                        subject: 'llmResponse',
+                        response: getLLMResponse()
+                    });
+
+                    if(splitText[splitText.length-1].split('"')[1]){
+                        resBox.value = splitText[splitText.length-1].split('"')[1];
+                    }else{
+                        resBox.value = getLLMResponse();
+                    }
+
+                }).catch((error) => {
+                    console.log(error);
+                })
+            })
+        } else {
+            popup.style.display = 'none';
+        }
+        updateIconVisibility();
+    };
+}
+
+// Update the visibility of the LLM Icon
+async function updateIconVisibility() {
+    var icon = document.getElementById("LLM_Icon");
+    var textarea = document.getElementById("popup-llm")
+    let currrentState = "";
+    if(icon){
+        try {
+            currrentState = await getToggleState('toggleState');
+            if (currrentState === "checked") {
+                icon.style.display = 'block'; 
+            } else {
+                icon.style.display = 'none';
+                textarea.style.display = 'none';
+            }
+        } catch (error) {
+            console.log("Error:",error);
+        }
+    }
+}
+
+
+
+// ---------- TOGGLES FUNCTIONS ----------
+
+// Get the state enable/disable of the extension
 async function getToggleState(key) {
     return new Promise((resolve, reject) => {
         try {
@@ -289,7 +340,7 @@ async function getToggleState(key) {
     });
 }
 
-//Add reformulate toggle
+// Add reformulate toggle
 async function addReformToggle(){
     let lswitch = document.getElementById('reformulationSwitch');
     let currrentState = "";
@@ -333,7 +384,7 @@ async function addReformToggle(){
     }
 }
 
-//add enable/disable toggle
+// Add enable/disable toggle
 async function addStatusToggle(){
     let lswitch = document.getElementById('enableSwitch');
     let currrentState = "";
@@ -377,7 +428,7 @@ async function addStatusToggle(){
     }
 }
 
-//Add code toggle
+// Add code toggle
 async function addCodeToggle(){
     let lswitch = document.getElementById('codeSwitch');
     let currrentState = "";
@@ -421,7 +472,7 @@ async function addCodeToggle(){
     }
 }
 
-//Add relevance toggle
+// Add relevance toggle
 async function addRelevanceToggle(){
     let lswitch = document.getElementById('relevanceSwitch');
     let currrentState = "";
@@ -465,7 +516,7 @@ async function addRelevanceToggle(){
     }
 }
 
-//Add toxicity toggle
+// Add toxicity toggle
 async function addToxicToggle(){
     let lswitch = document.getElementById('toxicitySwitch');
     let currrentState = "";
@@ -509,15 +560,11 @@ async function addToxicToggle(){
     }
 }
 
-//End Toggle switches functions
-//
-//
 
-//TextArea functions
-//
-//
 
-//Add Textarea related to icon click
+// ---------- TEXTAREA FUNCTIONS ----------
+
+// Add Textarea related to icon click
 async function add_LLM_Reply_Area(){
     let parentNode = document.getElementById("partial-new-comment-form-actions");
     if (!parentNode) {
@@ -560,7 +607,7 @@ async function add_LLM_Reply_Area(){
     }
 }
 
-//Function pour copier le texte
+// Copy text
 function copyToClipboard() {
     const text = document.getElementById('llm-response').value;
     if(text){
@@ -570,7 +617,7 @@ function copyToClipboard() {
     }
 }
 
-//Add event listener sur le bouton de copy
+// Add copy button event listener
 function attachCopyEvent(){
     if(document.getElementById("copySuggestion")){
         document.addEventListener('click', function(event) {
@@ -582,7 +629,7 @@ function attachCopyEvent(){
     }
 }
 
-//Add event listener sur le texte area
+// Add text area event listener
 function attachTextAreaEvent(){
      let textarea = document.getElementById("new_comment_field");
      if(textarea){
@@ -612,7 +659,7 @@ function attachTextAreaEvent(){
      }
  }
 
-//Function to delay the get of the input
+// Delay the get of the input
 function getTextOvertime(func,waitingFunc){
     let time;
     return function execute(...args){
@@ -625,68 +672,26 @@ function getTextOvertime(func,waitingFunc){
     }    
 }
 
-//Save with given texte
+// Save with given texte
 async function updateTextArea(input){
     setCurrentComment(input);
 }
 
-var currentComment;
+// Currentcomment setter
 function setCurrentComment(input){
     currentComment = input;
 }
 
+// Currentcomment getter
 function getCurrentComment() {
     return currentComment;
 }
-//End TextArea
-//
-//
 
-//add event listener for all toggle state
-chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
-    let icon = document.getElementById('LLM_Icon');
-    //Update toggle state
-    if(icon&&(request.toggleState == true || request.toggleState == false)){
-        icon.style.display = request.toggleState ? 'block' : 'none';
-        let state = request.toggleState ? "checked" : "not_checked";
-        try {
-            await chrome.storage.sync.set({ 'toggleState': state });
-            updateIconVisibility()
 
-        } catch (error) {
-            console.log("Error:",error);
-        }
-    }
 
-    //Handle toggle reform comment state
-    let copyButton = document.getElementById("copySuggestion");
-    if(copyButton && request.toggleReform != null){
-        if(request.toggleReform){
-            copyButton.style.display = "flex";
-        }else if(!request.toggleReform){
-            copyButton.style.display = "none";
-        }
-    }
-    
-    //Update Icon when changing tabs 
-    if(request.action === "updateIconOnTabChange"){
-        updateIconVisibility();
-        sendResponse({result: "UpdatedIcon"});
-    }
+// ----------  GITHUB API FUNCTIONS ---------- 
 
-    return true;
-});
-
-//Github API Functions
-//
-//
-
-//PrivateAccessToken
-var token = "";
-var headers = {
-    'Authorization': `token ${token}`,
-}
-
+// Token setter
 function setToken(customToken){
     token = customToken;
     headers= {
@@ -694,10 +699,12 @@ function setToken(customToken){
     }
 }
 
+// Token getter
 function getToken(){
     return token;
 }
 
+// Add event listener to watch when token is saved
 function addEventSaveToken(){
     let saveButton = document.getElementById("TokenSave");
     saveButton.addEventListener("click", async ()=>{
@@ -708,7 +715,7 @@ function addEventSaveToken(){
     });
 }
 
-//Function to get pull request comments 
+// Get pull request comments 
 async function getPullRequestComments() {
     if(token){
         try {
@@ -730,14 +737,7 @@ async function getPullRequestComments() {
     }
 }
 
-//Test to get comments
-// getPullRequestComments().then(comments => {
-//         if (comments) {
-//             console.log(comments);
-//         }
-//     });
-
-//Function to extract info from URL to get all necessary data
+// Extract info from URL to get all necessary data
 function getInfoFromURL() {
     const currentUrl = window.location.href;
     const regex = /https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/;
@@ -756,7 +756,7 @@ function getInfoFromURL() {
     }
 }
 
-//Function to get modified or added files url from Github
+// Get modified or added files url from Github
 async function getPullRequestFiles() {
     if(token){
         try {
@@ -775,14 +775,7 @@ async function getPullRequestFiles() {
     }
 }
 
-//Test to get files
-// getPullRequestFiles().then(files => {
-//         if (files) {
-//             console.log(files);
-//         }
-//     });
-
-//Function to seperate the files and get raw content
+// Seperate the files and get raw content
 async function getFileRawContent(files) {
     try {
         const fileContentsPromises = files.map(async file => {
@@ -804,20 +797,7 @@ async function getFileRawContent(files) {
     }
 }
 
-//Test to get raw content of files
-// getPullRequestFiles().then(files => {
-//         if (files) {
-//             return getFileRawContent(files);
-//         }
-//     }).then(filesWithContent => {
-//         if (filesWithContent) {
-//             console.log(filesWithContent);
-//         }
-//     });
-
-//Functions to get clean comments and file contents
-
-//Function to get clean comments
+// Get clean comments
 function getAllPullRequestComments(){
     return getPullRequestComments().then(comments => {
         if (comments) {
@@ -827,7 +807,7 @@ function getAllPullRequestComments(){
     });
 }
 
-//Function to get clean file contents
+// Get clean file contents
 function getAllFileContent(){
     return getPullRequestFiles().then(files => {
         if (files) {
@@ -842,14 +822,9 @@ function getAllFileContent(){
     });
 }
 
-//End Github API Functions
-//
-//
 
 
-//Function to create the prompt
-//
-//
+// ----------  PROMPT FUNCTION ---------- 
 
 async function createPrompt(){
     var idPrompt = await getPromptID();
@@ -903,28 +878,27 @@ async function createPrompt(){
     return {"id":idPrompt,"promt":prompt};
 }
 
-//End Prompt creation
 
-//Connexion to API
-//
-//
 
-var url = 'http://127.0.0.1:80/';
+// ----------  API FUNCTIONS ---------- 
+
+// URL setter
 function setURL(input){
     url = input
 } 
 
+// Check the API connexion
 async function checkConnexion(){
     const response = await fetch(url+"connexion");
     return response.json();
 }
 
-var promptID = null;
-
+// PromptID setter
 async function setPromptID(id){
     promptID = id;
 }
 
+// PromptID getter
 async function getPromptID(){
     if(promptID==null){
         await checkConnexion().then(response =>{
@@ -937,7 +911,7 @@ async function getPromptID(){
     return promptID;
 }
 
-
+// Send POST request to API with prompt
 async function postPrompt(data){
     const response = await fetch(url+"generate",{
         method: 'POST',
@@ -948,5 +922,3 @@ async function postPrompt(data){
     });
     return response.json();
 }
-
-//End Connexion to API

@@ -29,7 +29,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
                 }
             });
         }
-        if(request.subject === 'llm_response'){
+        if(request.subject === 'llmResponse'){
             chrome.storage.local.set({ [request.subject]: request.response});
         }
     }
