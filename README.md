@@ -29,7 +29,7 @@ docker build -t xxx --file Dockerfile .
 Ensuite, vous devez exécuter votre image dans un conteneur. Vous pouvez le faire avec la commande :
 
 ```
-docker run --gpus all --mount source=models,destination=/models -p 80:80 xxx
+docker run --gpus all -v /path/to/models/in/local/files:/models -p 80:80 xxx
 ```
 
 Vous pouvez changer le port d'exécution, mais il faut aussi faire les changements dans le Dockerfile à la dernière ligne.
