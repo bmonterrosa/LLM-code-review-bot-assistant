@@ -1,5 +1,5 @@
 # LLM-code-review-bot-assistant
-Pour exécuté l'extension avec le LLM par défault il faut lancer le conteneur Docker qui l'exécute. Voici les différentes pour faire fonctionner l'extension.
+Pour exécuter l'extension avec le LLM par défaut, il faut lancer le conteneur Docker qui l'exécute. Voici les différentes étapes à suivre pour faire fonctionner l'extension.
 
 ## Partie extension
 
@@ -29,7 +29,7 @@ docker build -t xxx --file Dockerfile .
 Ensuite, vous devez exécuter votre image dans un conteneur. Vous pouvez le faire avec la commande :
 
 ```
-docker run -p 80:80 xxx
+docker run --gpus all -v /path/to/models/in/local/files:/models -p 80:80 xxx
 ```
 
 Vous pouvez changer le port d'exécution, mais il faut aussi faire les changements dans le Dockerfile à la dernière ligne.
