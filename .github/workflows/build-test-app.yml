@@ -35,6 +35,7 @@ jobs:
         run: |
             pip install -r requirements.txt
             conda install pytest
+            conda update --all
             pytest
       - name: Login to DockerHub
         uses: docker/login-action@v2
