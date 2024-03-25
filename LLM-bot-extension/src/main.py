@@ -16,7 +16,7 @@ import os.path
 import torch
 # TODO : PUT YOUR HUGGINGFACE ACCESS TOKEN WITH WRITE PERMISSION IN THE access_token VARIABLE 
 # IN THE .secrets.py FILE
-from .secrets import access_token
+from .token_secrets import access_token
 
 device = f'cuda:{cuda.current_device()}' if cuda.is_available() else 'cpu'
 
