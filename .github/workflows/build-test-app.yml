@@ -33,8 +33,7 @@ jobs:
       - name: Run pytest
         shell: bash -l {0}
         run: |
-            conda install fastapi
-            conda install httpx
+            pip install -r requirements.txt
             conda install pytest
             pytest
       - name: Login to DockerHub
