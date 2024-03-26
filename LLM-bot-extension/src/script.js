@@ -272,8 +272,6 @@ function attachIconEvent(icon){
 
                     var res = response.result.toString();
                     var splitText = res.split('INST]');
-                    //to remove
-                    console.log(res);
 
                     saveLLMResponse(splitText[splitText.length-1]);
 
@@ -720,19 +718,52 @@ async function getPullRequestComments() {
     if(token){
         try {
             var urlInfo = getInfoFromURL();
-            const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
+            const prUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
+            const reviewsUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pull/${urlInfo.pullNumber}/comments`;
+            const prResponse = await fetch(prUrl, { headers: headers });
+            const reviewsResponse = await fetch(reviewsUrl, { headers: headers });
+            if (!prResponse.ok) {
+                throw new Error(`Error: ${prResponse.status}`);
+            }
+            if (!reviewsResponse.ok) {
+                throw new Error(`Error: ${reviewsResponse.status}`);
+            }
+            const prData = await prResponse.json(); 
+            const reviewsData= await reviewsResponse.json(); 
+            const prComments = prData.map(async prComment => {
+                if (prComment.user.login != "github-actions[bot]") {
+                    return prComment.body;
+                }
+            });
+            const reviewsComments = reviewsData.map(async reviewsComment => {
+                return reviewsComment.body;
+            });
+            return Promise.all(prComments.concat(reviewsComments));
+        } catch (error) {
+            console.log(error);
+        }
+    }else{
+        alert("No Personal access token detected!")
+    }
+}
+
+// Get pull request reviews comments 
+async function getPullRequestReviewsComments() {
+    if(token){
+        try {
+            var urlInfo = getInfoFromURL();
+            const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pull/${urlInfo.pullNumber}/comments`;
             const response = await fetch(url, { headers: headers });
             if (!response.ok) {
                 throw new Error(`Error: ${response.status}`);
             }
             const data = await response.json(); 
             const comments = data.map(async comment => {
-                if (comment.user.login != "github-actions[bot]") {
-                    return comment.body;
-                }
+                return comment.body;
             });
             return Promise.all(comments);
         } catch (error) {
+            console.log(error);
         }
     }else{
         alert("No Personal access token detected!")
@@ -801,9 +832,11 @@ async function getFileRawContent(files) {
 
 // Get clean comments
 function getAllPullRequestComments(){
+    let prComments = [];
+    let reviewsComments = [];
     return getPullRequestComments().then(comments => {
         if (comments) {
-            return comments;
+            prComments = comments;
         }
         return [];
     });
