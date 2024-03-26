@@ -33,13 +33,27 @@ jobs:
             conda install flake8
             python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
             python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      - name: Run pytest
-        shell: bash -l {0}
+       
+            # Docker setup
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      # Build Docker image
+      - name: Build Docker image
+        run: docker build -t llm .
+
+      # Run Docker container
+      - name: Run Docker container
+        run: docker run -d --name llm-container llm
+
+      # Wait for the Docker container to start (optional)
+      - name: Wait for container to start
+        run: sleep 10
+
+      # Install dependencies and run tests inside the Docker container
+      - name: Run tests
         run: |
-            pip install --upgrade pip
-            pip install -r requirements.txt
-            pip install pytest
-            pytest
+          docker exec myapp-container /bin/sh -c "pip install --upgrade pip && pip install -r requirements.txt && pip install pytest && pytest"
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
@@ -51,8 +65,8 @@ jobs:
           context: .
           push: true
           tags: |
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/your-image-name:latest
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/your-image-name:${{ github.sha }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/llm-pr-chatbot:latest
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/llm-pr-chatbot:${{ github.sha }}
 
   deploy-extension:
     needs: build
