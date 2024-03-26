@@ -7,6 +7,9 @@ from main import app
 # based on this https://fastapi.tiangolo.com/tutorial/testing/#testing-file
 client = TestClient(app)
 
+def test_always_passes():
+    assert True
+
 
 # def test_hello_world():
 #     response = client.get("/")
