@@ -14,9 +14,9 @@ import time
 import logging
 import os.path
 import torch
-# TODO : PUT YOUR HUGGINGFACE ACCESS TOKEN WITH WRITE PERMISSION IN THE access_token VARIABLE 
-# IN THE .secrets.py FILE
-from .token_secrets import access_token
+hugging_face_token = os.getenv('HUGGING_FACE_TOKEN')
+
+
 
 device = f'cuda:{cuda.current_device()}' if cuda.is_available() else 'cpu'
 
@@ -79,15 +79,15 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
         if (os.path.exists(save_dir + model_id)):
             logger.info("Loading model and tokenizer from local files")
             model = auto_model.from_pretrained(save_dir + model_id, torch_dtype=torch.bfloat16, device_map='auto',
-                                            token=access_token)
+                                            token=hugging_face_token)
             logger.info("Model loaded.")
-            tokenizer = auto_tokenizer.from_pretrained(save_dir + model_id, token=access_token)
+            tokenizer = auto_tokenizer.from_pretrained(save_dir + model_id, token=hugging_face_token)
             logger.info("Tokenizer loaded.")
             logger.info("Loading from local files complete.")
         else:
             logger.info("Model and tokenizer not found locally. Downloading...")
-            model = auto_model.from_pretrained(model_id, torch_dtype=torch.bfloat16, device_map='auto', token=access_token)
-            tokenizer = auto_tokenizer.from_pretrained(model_id, token=access_token)
+            model = auto_model.from_pretrained(model_id, torch_dtype=torch.bfloat16, device_map='auto', token=hugging_face_token)
+            tokenizer = auto_tokenizer.from_pretrained(model_id, token=hugging_face_token)
             logger.info("Download complete. Saving models to volume " + save_dir + model_id)
             model.save_pretrained(save_dir + model_id)
             tokenizer.save_pretrained(save_dir + model_id)

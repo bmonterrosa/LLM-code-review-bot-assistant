@@ -24,9 +24,11 @@ jobs:
       - shell: bash -l {0}
         run: |
           conda info
-          conda list
+          conda list       
       - name: Lint
         shell: bash -l {0}
+        env:  
+          HUGGING_FACE_TOKEN: ${{ secrets.HUGGING_FACE_TOKEN }}
         run: |
             conda install flake8
             python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
