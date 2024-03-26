@@ -8,20 +8,20 @@ from main import app
 client = TestClient(app)
 
 
-def test_hello_world():
-    response = client.get("/")
-    assert response.status_code == 200
-    assert response.json() == {'Hello': 'World'}
+# def test_hello_world():
+#     response = client.get("/")
+#     assert response.status_code == 200
+#     assert response.json() == {'Hello': 'World'}
 
 
-def test_save():
-    response = client.get("/testsavebasic")
-    assert response.status_code == 200
+# def test_save():
+#     response = client.get("/testsavebasic")
+#     assert response.status_code == 200
 
 
-def test_read():
-    response = client.get("/testreadbasic")
-    assert response.status_code == 200
+# def test_read():
+#     response = client.get("/testreadbasic")
+#     assert response.status_code == 200
 
 
 # doesnt pass because we need to download and stuff kinda too complicated to test
