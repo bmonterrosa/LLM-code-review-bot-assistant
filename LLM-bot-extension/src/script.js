@@ -721,20 +721,20 @@ async function getPullRequestComments() {
             const prUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
             const reviewsUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pull/${urlInfo.pullNumber}/comments`;
             const prResponse = await fetch(prUrl, { headers: headers });
-            const reviewsResponse = await fetch(reviewsUrl, { headers: headers });
             if (!prResponse.ok) {
                 throw new Error(`Error: ${prResponse.status}`);
             }
+            const reviewsResponse = await fetch(reviewsUrl, { headers: headers });
             if (!reviewsResponse.ok) {
                 throw new Error(`Error: ${reviewsResponse.status}`);
             }
             const prData = await prResponse.json(); 
-            const reviewsData= await reviewsResponse.json(); 
             const prComments = prData.map(async prComment => {
                 if (prComment.user.login != "github-actions[bot]") {
                     return prComment.body;
                 }
             });
+            const reviewsData= await reviewsResponse.json(); 
             const reviewsComments = reviewsData.map(async reviewsComment => {
                 return reviewsComment.body;
             });
@@ -832,11 +832,9 @@ async function getFileRawContent(files) {
 
 // Get clean comments
 function getAllPullRequestComments(){
-    let prComments = [];
-    let reviewsComments = [];
     return getPullRequestComments().then(comments => {
         if (comments) {
-            prComments = comments;
+            return comments;
         }
         return [];
     });
