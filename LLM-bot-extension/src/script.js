@@ -727,7 +727,9 @@ async function getPullRequestComments() {
             }
             const data = await response.json(); 
             const comments = data.map(async comment => {
-                return comment.body;
+                if (comment.user.login != "github-actions[bot]") {
+                    return comment.body;
+                }
             });
             return Promise.all(comments);
         } catch (error) {
