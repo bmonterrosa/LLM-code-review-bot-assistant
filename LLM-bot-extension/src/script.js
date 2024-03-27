@@ -753,7 +753,7 @@ async function getPullRequestComments() {
         try {
             var urlInfo = getInfoFromURL();
             const prUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
-            const reviewsUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pull/${urlInfo.pullNumber}/comments`;
+            const reviewsUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/comments`;
             const prResponse = await fetch(prUrl, { headers: headers });
             if (!prResponse.ok) {
                 throw new Error(`Error: ${prResponse.status}`);
