@@ -67,7 +67,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     addToxicToggle()
 
     addEventChangeLLM()
-    addEventSaveToken()
+    addEventGithubSaveToken()
+    addEventHuggingFaceSaveToken()
 });
 
 // Toggle state listener
@@ -567,7 +568,7 @@ async function addEventChangeLLM(){
         alert("Changing LLM please wait... look at console to see when llm is saved")
         try {
         // Make a GET request to FastAPI server
-        const response = await fetch(`http://127.0.0.1/changeLLM/?data=${selectedValue}`);
+        const response = await fetch(url + `changeLLM/?data=${selectedValue}`);
         //const response = await fetch(`http://127.0.0.1/premierdem`)
         const data = await response.json()
         } catch (error) {
@@ -702,16 +703,36 @@ function getCurrentComment() {
     return currentComment;
 }
 
+// ----------  HUGGING FACE API FUNCTIONS ---------- 
+
+
+function addEventHuggingFaceSaveToken(){
+    let saveButton = document.getElementById("hugging_face_token_save");
+    saveButton.addEventListener("click", async ()=>{
+        let tokenText = document.getElementById("hugging_face_token");
+        if(tokenText.value){
+            //setToken(tokenText.value);
+            try {
+                // Make a GET request to FastAPI server
+                const response = await fetch(url + `setHuggingFaceToken/?data=${tokenText.value}`);
+                const data = await response.json()
+                } catch (error) {
+                console.error('Error:', error)
+            }
+        }
+    });
+}
 
 
 // ----------  GITHUB API FUNCTIONS ---------- 
 
 // Token setter
-function setToken(customToken){
-    token = customToken;
-    headers= {
+function setToken(userToken) {
+    token = userToken;
+    // Update the headers with the new token
+    headers = {
         'Authorization': `token ${token}`,
-    }
+    };
 }
 
 // Token getter
@@ -720,15 +741,17 @@ function getToken(){
 }
 
 // Add event listener to watch when token is saved
-function addEventSaveToken(){
-    let saveButton = document.getElementById("TokenSave");
+function addEventGithubSaveToken(){
+    let saveButton = document.getElementById("github_token_save");
     saveButton.addEventListener("click", async ()=>{
-        let tokenText = document.getElementById("github_Token");
+        let tokenText = document.getElementById("github_token");
         if(tokenText.value){
-            setToken(tokenText.value);
+            setGithubToken(tokenText.value);
         }
     });
 }
+
+
 
 // Get pull request comments 
 async function getPullRequestComments() {
@@ -902,7 +925,7 @@ async function createPrompt(){
     }else{
         prompt += "return my comment as it is.\n";
     }
-    return {"id":idPrompt,"promt":prompt};
+    return {"id":idPrompt,"prompt":prompt};
 }
 
 

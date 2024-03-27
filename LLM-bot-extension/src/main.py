@@ -14,6 +14,7 @@ import time
 import logging
 import os.path
 import torch
+
 hugging_face_token = os.getenv('HUGGING_FACE_TOKEN')
 
 
@@ -99,6 +100,13 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
 @app.get("/")
 def test_read_root():
     return {"Hello": "World"}
+
+@app.get("/setHuggingFaceToken/")
+async def changeLLM(data: str):
+    logger.info("Setting token...")
+    global hugging_face_token
+    hugging_face_token = data
+    print(device)
 
 @app.get("/changeLLM/")
 async def changeLLM(data: str):
