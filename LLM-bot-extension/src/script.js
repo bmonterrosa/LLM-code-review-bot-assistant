@@ -747,29 +747,6 @@ async function getPullRequestComments() {
     }
 }
 
-// Get pull request reviews comments 
-async function getPullRequestReviewsComments() {
-    if(token){
-        try {
-            var urlInfo = getInfoFromURL();
-            const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pull/${urlInfo.pullNumber}/comments`;
-            const response = await fetch(url, { headers: headers });
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status}`);
-            }
-            const data = await response.json(); 
-            const comments = data.map(async comment => {
-                return comment.body;
-            });
-            return Promise.all(comments);
-        } catch (error) {
-            console.log(error);
-        }
-    }else{
-        alert("No Personal access token detected!")
-    }
-}
-
 // Extract info from URL to get all necessary data
 function getInfoFromURL() {
     const currentUrl = window.location.href;
