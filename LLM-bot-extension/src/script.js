@@ -646,14 +646,14 @@ function attachTextAreaEvent(){
         //EventListeners for when user gets out of textarea
          textarea.addEventListener('change', function(event) {
              updateTextArea(event.target.value);
-            if(area){
-                area.style.display = "none";
+            if(textarea){
+                textarea.style.display = "none";
             }
          });
          textarea.addEventListener('blur', function(event) {
              updateTextArea(event.target.value);
-             if(area){
-                area.style.display = "none";
+             if(textarea){
+                textarea.style.display = "none";
             }
          });
 
