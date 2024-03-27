@@ -267,32 +267,26 @@ function attachIconEvent(icon){
                 resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
             }, interval);
 
-            //Send request to LLM
-            await createPrompt().then(async data =>{
-                await postPrompt(data).then(response => {
-                    clearInterval(intervalId);
-
-                    var res = response.result.toString();
-                    var splitText = res.split('INST]');
-
-                    saveLLMResponse(splitText[splitText.length-1]);
-
-                    chrome.runtime.sendMessage({
-                        from: 'popup',
-                        subject: 'llmResponse',
-                        response: getLLMResponse()
-                    });
-
-                    if(splitText[splitText.length-1].split('"')[1]){
-                        resBox.value = splitText[splitText.length-1].split('"')[1];
-                    }else{
-                        resBox.value = getLLMResponse();
-                    }
-
-                }).catch((error) => {
-                    console.log(error);
-                })
-            })
+            //Call new function HERE but keep old commented
+            try {
+                let promptsResponses = await createPrompts();
+                console.log('promptsResponses bellow');
+                console.log(promptsResponses);
+                clearInterval(intervalId); // Stop the buffering effect
+                // Process and display the responses
+                resBox.value = promptsResponses.join('\n');
+                
+                // Send the result to the background page or wherever it's needed
+                chrome.runtime.sendMessage({
+                    from: 'popup',
+                    subject: 'llmResponse',
+                    response: promptsResponses
+                });
+            } catch (error) {
+                console.error(error);
+                clearInterval(intervalId);
+                resBox.value = "Error: Could not get a response.";
+            }
         } else {
             popup.style.display = 'none';
         }
@@ -783,7 +777,7 @@ async function getPullRequestComments() {
             console.log(error);
         }
     }else{
-        alert("No Personal access token detected!")
+        alert("PR-Comments:No Personal access token detected!")
     }
 }
 
@@ -810,8 +804,10 @@ function getInfoFromURL() {
 async function getPullRequestFiles() {
     if(token){
         try {
+            console.log("Entering getPullRequestFiles");
             var urlInfo = getInfoFromURL();
             const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/files`;
+            console.log("Featching Files from url: " + url);
             const response = await fetch(url, { headers: headers });
             if (!response.ok) {
                 throw new Error(`HTTP Error: ${response.status}`);
@@ -821,29 +817,7 @@ async function getPullRequestFiles() {
         } catch (error) {
         }
     }else{
-        alert("No Personal access token detected!")
-    }
-}
-
-// Seperate the files and get raw content
-async function getFileRawContent(files) {
-    try {
-        const fileContentsPromises = files.map(async file => {
-            const apiURL = file.contents_url;
-            const response = await fetch(apiURL, { headers: headers });
-
-            if (!response.ok) {
-                throw new Error(`HTTP Error: ${response.status}`);
-            }
-            const content = await response.json();
-            const contentName = content.name;
-            const decodedContent = atob(content.content);
-            
-            return {contentName,decodedContent} ;
-        });
-
-        return Promise.all(fileContentsPromises);
-    } catch (error) {
+        alert("PR-FILES:No Personal access token detected!")
     }
 }
 
@@ -857,86 +831,124 @@ function getAllPullRequestComments(){
     });
 }
 
-// Get clean file contents
-function getAllFileContent(){
-    return getPullRequestFiles().then(files => {
-        if (files) {
-            return getFileRawContent(files);
-        }
+//Return an array of strings that contains, filename: + patch
+async function getAllFileContent() {
+    console.log("Entering getAllFileContentUpdated");
+    let files = await getPullRequestFiles();
+    if (!files || files.length === 0) {
+        console.log("No files found or an error occurred.");
         return [];
-    }).then(filesWithContent => {
-        if (filesWithContent) {
-            return filesWithContent;
+    }
+    let filesWithPatches = files.map(file => {
+        if (file.patch) {
+            return `filename: ${file.filename}, patch: ${file.patch}`;
+        } else {
+            return `filename: ${file.filename}, patch: No changes or binary file`;
         }
-        return [];
     });
+    console.log("Modified files with content:", filesWithPatches);
+    return filesWithPatches;
 }
 
 
 
 // ----------  PROMPT FUNCTION ---------- 
 
-async function createPrompt(){
-    var idPrompt = await getPromptID();
-    var prompt = "You are a programmer reviewing and posting comments for a pull requests. \n";
-    let relevanceState = await getToggleState('toggleRelevance');
-    let toxicState = await getToggleState('toggleToxicity');
-    if(relevanceState === 'checked'){
-        prompt += "Determine if a comment is relevant to the code changes or discussion at hand. \n"
+async function createPrompts() {
+    var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
 
-    }
-    if(toxicState === 'checked'){
-        prompt += "Identify if the comment is toxic, unprofessional, or inappropriate in any way. \n"
-            
-    }
-    //Add comments to prompt
+    // Start timer
+    let startTime = performance.now();
+
     let comments = await getAllPullRequestComments();
-    if(comments){
-        prompt += "Past comments made on a Pull request : \n";
+    if (typeof comments === 'string' && comments.trim() !== "") {
+        basePrompt += " Here are the previous comments made on a Pull request:\n";
         comments.forEach(comment => {
-            prompt += '"'+comment + '"\n';
+            basePrompt += '"' + comment + '"\n';
         });
     }
 
     let codeState = await getToggleState('toggleCode');
-    //Add code element to prompt
-    if(codeState === 'checked'){
-        prompt += "Here are files that have been modified or added : \n";
-        let fileContent = await getAllFileContent();
-        if(fileContent){
-            fileContent.forEach(content =>{
-                var name = "File name : " + content.contentName + "\n";
-                var textContent = "code : \n" + content.decodedContent + "\n";
-                prompt += name + textContent;
-            })
-        }
-        prompt += "End of code \n"
-    }
+    if (codeState === 'checked') {
+    basePrompt += "Here are the file names and code affected by this pull request: \n";
+    let fileContents = await getAllFileContent();
 
-    //Get current comment
-    prompt += "Comment to be posted: \n";
-    
-    prompt += "\""+getCurrentComment() + "\". \n";
-   
- 
-    let reformStat = await getToggleState("toggleReform");
-    if(reformStat === 'checked'){
-        prompt += "Reformulate the comment to make it constructive and respectful for a professional code review.\n";
-    }else{
-        prompt += "return my comment as it is.\n";
+    // Add the filename and patch text to the prompt
+    if (fileContents.length > 0) {
+        fileContents.forEach(fileContent => {
+            basePrompt += fileContent + "\n";
+        });
+    } else {
+        basePrompt += "No file changes are available for this pull request.\n";
     }
-    return {"id":idPrompt,"prompt":prompt};
+    basePrompt += "End of code section.\n";
+}
+
+
+    let pendingComment = getCurrentComment();
+    basePrompt += "Here is the pending reply: " + pendingComment + "\n";
+
+    let promptsResponsesArray = [];
+    if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
+        console.log("Entering Prompt making");
+        let relevanceState = await getToggleState('toggleRelevance');
+        let toxicState = await getToggleState('toggleToxicity');
+        let reformState = await getToggleState("toggleReform");
+
+        // Function to get the response for each prompt
+        const getResponse = async (additionalPrompt) => {
+            let completePrompt = basePrompt + additionalPrompt;
+            console.log("Prompt being processed: " + completePrompt);
+            const response = await fetch(url + "generate-prompt", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: completePrompt,
+                    num_tokens: 500
+                })
+            });
+            const responseData = await response.json();
+            return responseData.result.split(additionalPrompt).pop().trim();
+        };
+
+        if (relevanceState === 'checked') {
+            let relevanceResponse = await getResponse("Now as the helper bot, can you tell If the pending reply relevant? Keep your answer within 2 sentences.");
+            promptsResponsesArray.push("Relevance: " + relevanceResponse);
+        }
+        if (toxicState === 'checked') {
+            let toxicResponse = await getResponse("Now as the helper bot, can you tell If the pending reply toxic? Keep your answer within 2 sentences.");
+            promptsResponsesArray.push("Toxicity: " + toxicResponse);
+        }
+        if (reformState === 'checked') {
+            let reformResponse = await getResponse("Now as the helper bot,Reformulate the pending reply in a professional way within 2 sentences.");
+            promptsResponsesArray.push("Reformulation: " + reformResponse);
+        }
+
+        // Check if no prompts were toggled and add a default reply
+        if (promptsResponsesArray.length === 0) {
+            promptsResponsesArray.push("Please toggle a prompt setting.");
+        }
+        
+    // End timer
+    let endTime = performance.now();
+    let timeTaken = endTime - startTime;
+    promptsResponsesArray.push(`Time taken: ${timeTaken.toFixed(2)} ms`);
+    }else {
+        console.log("No comment in text area");
+        promptsResponsesArray.push("Please write a comment in the text area.");
+    }
+    return promptsResponsesArray;
 }
 
 
 
 // ----------  API FUNCTIONS ---------- 
-
 // URL setter
 function setURL(input){
     url = input
 } 
-
 // Check the API connexion
 async function checkConnexion(){
     const response = await fetch(url+"connexion");
