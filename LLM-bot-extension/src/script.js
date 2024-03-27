@@ -267,10 +267,10 @@ function attachIconEvent(icon){
 
             //Call new function HERE but keep old commented
             try {
-                let promptsResponses = await createPromptsUpdated();
-                console.log('promptsResponses above');
+                let promptsResponses = await createPrompts();
+                console.log('promptsResponses bellow');
+                console.log(promptsResponses);
                 clearInterval(intervalId); // Stop the buffering effect
-
                 // Process and display the responses
                 resBox.value = promptsResponses.join('\n');
                 
@@ -288,40 +288,6 @@ function attachIconEvent(icon){
         } else {
             popup.style.display = 'none';
         }
-            //Send request to LLM
-        //     await createPrompt().then(async data =>{
-        //         await postPrompt(data).then(response => {
-        //             clearInterval(intervalId);
-
-        //             var res = response.result.toString();
-
-        //             var splitText = res.split('INST]');
-
-        //             console.log(res);
-        //             console.log('---------BRUHTTEST');
-        //             console.log(splitText);
-
-        //             saveLLMResponse(splitText[splitText.length-1]);
-
-        //             chrome.runtime.sendMessage({
-        //                 from: 'popup',
-        //                 subject: 'llmResponse',
-        //                 response: getLLMResponse()
-        //             });
-
-        //             if(splitText[splitText.length-1].split('"')[1]){
-        //                 resBox.value = splitText[splitText.length-1].split('"')[1];
-        //             }else{
-        //                 resBox.value = getLLMResponse();
-        //             }
-
-        //         }).catch((error) => {
-        //             console.log(error);
-        //         })
-        //     })
-        // } else {
-        //     popup.style.display = 'none';
-        // }
         updateIconVisibility();
     };
 }
@@ -743,14 +709,11 @@ function addEventSaveToken(){
 
 // Get pull request comments 
 async function getPullRequestComments() {
-    if(true){
+    if(token){
         try {
-            var headersTest = {
-                'Authorization': `token ${'INSERT TOKEN'}`,
-            }
             var urlInfo = getInfoFromURL();
             const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
-            const response = await fetch(url, { headers: headersTest });
+            const response = await fetch(url, { headers: headers });
             if (!response.ok) {
                 throw new Error(`Error: ${response.status}`);
             }
@@ -762,7 +725,7 @@ async function getPullRequestComments() {
         } catch (error) {
         }
     }else{
-        alert("PR Comments:No Personal access token detected!")
+        alert("PR-Comments:No Personal access token detected!")
     }
 }
 
@@ -787,14 +750,13 @@ function getInfoFromURL() {
 
 // Get modified or added files url from Github
 async function getPullRequestFiles() {
-    if(true){
+    if(token){
         try {
-            var headersTest = {
-                'Authorization': `token ${'INSERT TOKEN'}`,
-            }
+            console.log("Entering getPullRequestFiles");
             var urlInfo = getInfoFromURL();
             const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/files`;
-            const response = await fetch(url, { headers: headersTest });
+            console.log("Featching Files from url: " + url);
+            const response = await fetch(url, { headers: headers });
             if (!response.ok) {
                 throw new Error(`HTTP Error: ${response.status}`);
             }
@@ -804,28 +766,6 @@ async function getPullRequestFiles() {
         }
     }else{
         alert("PR-FILES:No Personal access token detected!")
-    }
-}
-
-// Seperate the files and get raw content
-async function getFileRawContent(files) {
-    try {
-        const fileContentsPromises = files.map(async file => {
-            const apiURL = file.contents_url;
-            const response = await fetch(apiURL, { headers: headers });
-
-            if (!response.ok) {
-                throw new Error(`HTTP Error: ${response.status}`);
-            }
-            const content = await response.json();
-            const contentName = content.name;
-            const decodedContent = atob(content.content);
-            
-            return {contentName,decodedContent} ;
-        });
-
-        return Promise.all(fileContentsPromises);
-    } catch (error) {
     }
 }
 
@@ -839,85 +779,37 @@ function getAllPullRequestComments(){
     });
 }
 
-// Get clean file contents
-function getAllFileContent(){
-    return getPullRequestFiles().then(files => {
-        if (files) {
-            return getFileRawContent(files);
-        }
+//Return an array of strings that contains, filename: + patch
+async function getAllFileContent() {
+    console.log("Entering getAllFileContentUpdated");
+    let files = await getPullRequestFiles();
+    if (!files || files.length === 0) {
+        console.log("No files found or an error occurred.");
         return [];
-    }).then(filesWithContent => {
-        if (filesWithContent) {
-            return filesWithContent;
+    }
+    let filesWithPatches = files.map(file => {
+        if (file.patch) {
+            return `filename: ${file.filename}, patch: ${file.patch}`;
+        } else {
+            return `filename: ${file.filename}, patch: No changes or binary file`;
         }
-        return [];
     });
+    console.log("Modified files with content:", filesWithPatches);
+    return filesWithPatches;
 }
 
 
 
 // ----------  PROMPT FUNCTION ---------- 
 
-async function createPrompt(){
-    var idPrompt = await getPromptID();
-    var prompt = "You are a programmer reviewing and posting comments for a pull requests. \n";
-    let relevanceState = await getToggleState('toggleRelevance');
-    let toxicState = await getToggleState('toggleToxicity');
-    if(relevanceState === 'checked'){
-        prompt += "Determine if a comment is relevant to the code changes or discussion at hand. \n"
-
-    }
-    if(toxicState === 'checked'){
-        prompt += "Identify if the comment is toxic, unprofessional, or inappropriate in any way. \n"
-            
-    }
-    //Add comments to prompt
-    let comments = await getAllPullRequestComments();
-    if(comments){
-        prompt += "Past comments made on a Pull request : \n";
-        comments.forEach(comment => {
-            prompt += '"'+comment + '"\n';
-        });
-    }
-
-    let codeState = await getToggleState('toggleCode');
-    //Add code element to prompt
-    if(codeState === 'checked'){
-        prompt += "Here are files that have been modified or added : \n";
-        let fileContent = await getAllFileContent();
-        if(fileContent){
-            fileContent.forEach(content =>{
-                var name = "File name : " + content.contentName + "\n";
-                var textContent = "code : \n" + content.decodedContent + "\n";
-                prompt += name + textContent;
-            })
-        }
-        prompt += "End of code \n"
-    }
-
-    //Get current comment
-    prompt += "Comment to be posted: \n";
-    
-    prompt += "\""+getCurrentComment() + "\". \n";
-   
- 
-    let reformStat = await getToggleState("toggleReform");
-    if(reformStat === 'checked'){
-        prompt += "Reformulate the comment to make it constructive and respectful for a professional code review.\n";
-    }else{
-        prompt += "return my comment as it is.\n";
-    }
-    return {"id":idPrompt,"promt":prompt};
-}
-
-async function createPromptsUpdated() {
+async function createPrompts() {
     var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
 
     // Start timer
     let startTime = performance.now();
 
     let comments = await getAllPullRequestComments();
-    if (comments) {
+    if (typeof comments === 'string' && comments.trim() !== "") {
         basePrompt += " Here are the previous comments made on a Pull request:\n";
         comments.forEach(comment => {
             basePrompt += '"' + comment + '"\n';
@@ -926,22 +818,24 @@ async function createPromptsUpdated() {
 
     let codeState = await getToggleState('toggleCode');
     if (codeState === 'checked') {
-        basePrompt += "Here are the file names and code affected by this pull request: \n";
-        let fileContent = await getAllFileContent();
-        if (fileContent) {
-            fileContent.forEach(content => {
-                var name = "File name: " + content.contentName + "\n";
-                var textContent = "Code:\n" + content.decodedContent + "\n";
-                basePrompt += name + textContent;
-            })
-        }
-        basePrompt += "End of code section.\n";
+    basePrompt += "Here are the file names and code affected by this pull request: \n";
+    let fileContents = await getAllFileContent();
+
+    // Add the filename and patch text to the prompt
+    if (fileContents.length > 0) {
+        fileContents.forEach(fileContent => {
+            basePrompt += fileContent + "\n";
+        });
+    } else {
+        basePrompt += "No file changes are available for this pull request.\n";
     }
+    basePrompt += "End of code section.\n";
+}
+
 
     let pendingComment = getCurrentComment();
-    console.log("Pending Comment: "+pendingComment);
     basePrompt += "Here is the pending reply: " + pendingComment + "\n";
-    console.log("Base Prompt: "+basePrompt);
+
     let promptsResponsesArray = [];
     if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
         console.log("Entering Prompt making");
@@ -952,6 +846,7 @@ async function createPromptsUpdated() {
         // Function to get the response for each prompt
         const getResponse = async (additionalPrompt) => {
             let completePrompt = basePrompt + additionalPrompt;
+            console.log("Prompt being processed: " + completePrompt);
             const response = await fetch(url + "generate-prompt", {
                 method: 'POST',
                 headers: {
@@ -967,15 +862,15 @@ async function createPromptsUpdated() {
         };
 
         if (relevanceState === 'checked') {
-            let relevanceResponse = await getResponse("Is the pending reply relevant? Keep your answer within 2 sentences.");
+            let relevanceResponse = await getResponse("Now as the helper bot, can you tell If the pending reply relevant? Keep your answer within 2 sentences.");
             promptsResponsesArray.push("Relevance: " + relevanceResponse);
         }
         if (toxicState === 'checked') {
-            let toxicResponse = await getResponse("Is the pending reply toxic? Keep your answer within 2 sentences.");
+            let toxicResponse = await getResponse("Now as the helper bot, can you tell If the pending reply toxic? Keep your answer within 2 sentences.");
             promptsResponsesArray.push("Toxicity: " + toxicResponse);
         }
         if (reformState === 'checked') {
-            let reformResponse = await getResponse("Reformulate the pending reply in a professional way within 2 sentences.");
+            let reformResponse = await getResponse("Now as the helper bot,Reformulate the pending reply in a professional way within 2 sentences.");
             promptsResponsesArray.push("Reformulation: " + reformResponse);
         }
 
@@ -987,28 +882,21 @@ async function createPromptsUpdated() {
     // End timer
     let endTime = performance.now();
     let timeTaken = endTime - startTime;
-
-    // Add the time count at the end of all responses
     promptsResponsesArray.push(`Time taken: ${timeTaken.toFixed(2)} ms`);
     }else {
         console.log("No comment in text area");
         promptsResponsesArray.push("Please write a comment in the text area.");
     }
-
-
-    console.log(promptsResponsesArray);
     return promptsResponsesArray;
 }
 
 
 
 // ----------  API FUNCTIONS ---------- 
-
 // URL setter
 function setURL(input){
     url = input
 } 
-
 // Check the API connexion
 async function checkConnexion(){
     const response = await fetch(url+"connexion");
