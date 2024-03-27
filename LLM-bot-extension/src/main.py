@@ -33,7 +33,7 @@ model_loaded=""
 
 save_dir = "/models/"
 
-model_id = "google/gemma-2b"
+model_id = "google/gemma-2b-it"
 offload_folder="/"
 auto_model=AutoModelForCausalLM
 auto_tokenizer=AutoTokenizer
@@ -133,7 +133,7 @@ def generate(request: PromtRequest):
     output = model.generate(
         **inputs,
         max_new_tokens=500,
-        eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
+        # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
     )
     output = output[0].to(device)
 
@@ -231,7 +231,7 @@ def message_generate(request: PromptMessage):
     output = model.generate(
         **inputs,
         max_new_tokens=request.num_tokens,  # Use the specified number of tokens
-        eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
+        # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
     )
     output = output[0].to(device)
 

@@ -265,37 +265,63 @@ function attachIconEvent(icon){
                 resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
             }, interval);
 
-            //Send request to LLM
-            await createPrompt().then(async data =>{
-                await postPrompt(data).then(response => {
-                    clearInterval(intervalId);
+            //Call new function HERE but keep old commented
+            try {
+                let promptsResponses = await createPromptsUpdated();
+                console.log('promptsResponses above');
+                clearInterval(intervalId); // Stop the buffering effect
 
-                    var res = response.result.toString();
-                    var splitText = res.split('INST]');
-                    //to remove
-                    console.log(res);
-
-                    saveLLMResponse(splitText[splitText.length-1]);
-
-                    chrome.runtime.sendMessage({
-                        from: 'popup',
-                        subject: 'llmResponse',
-                        response: getLLMResponse()
-                    });
-
-                    if(splitText[splitText.length-1].split('"')[1]){
-                        resBox.value = splitText[splitText.length-1].split('"')[1];
-                    }else{
-                        resBox.value = getLLMResponse();
-                    }
-
-                }).catch((error) => {
-                    console.log(error);
-                })
-            })
+                // Process and display the responses
+                resBox.value = promptsResponses.join('\n');
+                
+                // Send the result to the background page or wherever it's needed
+                chrome.runtime.sendMessage({
+                    from: 'popup',
+                    subject: 'llmResponse',
+                    response: promptsResponses
+                });
+            } catch (error) {
+                console.error(error);
+                clearInterval(intervalId);
+                resBox.value = "Error: Could not get a response.";
+            }
         } else {
             popup.style.display = 'none';
         }
+            //Send request to LLM
+        //     await createPrompt().then(async data =>{
+        //         await postPrompt(data).then(response => {
+        //             clearInterval(intervalId);
+
+        //             var res = response.result.toString();
+
+        //             var splitText = res.split('INST]');
+
+        //             console.log(res);
+        //             console.log('---------BRUHTTEST');
+        //             console.log(splitText);
+
+        //             saveLLMResponse(splitText[splitText.length-1]);
+
+        //             chrome.runtime.sendMessage({
+        //                 from: 'popup',
+        //                 subject: 'llmResponse',
+        //                 response: getLLMResponse()
+        //             });
+
+        //             if(splitText[splitText.length-1].split('"')[1]){
+        //                 resBox.value = splitText[splitText.length-1].split('"')[1];
+        //             }else{
+        //                 resBox.value = getLLMResponse();
+        //             }
+
+        //         }).catch((error) => {
+        //             console.log(error);
+        //         })
+        //     })
+        // } else {
+        //     popup.style.display = 'none';
+        // }
         updateIconVisibility();
     };
 }
@@ -717,11 +743,14 @@ function addEventSaveToken(){
 
 // Get pull request comments 
 async function getPullRequestComments() {
-    if(token){
+    if(true){
         try {
+            var headersTest = {
+                'Authorization': `token ${'INSERT TOKEN'}`,
+            }
             var urlInfo = getInfoFromURL();
             const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
-            const response = await fetch(url, { headers: headers });
+            const response = await fetch(url, { headers: headersTest });
             if (!response.ok) {
                 throw new Error(`Error: ${response.status}`);
             }
@@ -733,7 +762,7 @@ async function getPullRequestComments() {
         } catch (error) {
         }
     }else{
-        alert("No Personal access token detected!")
+        alert("PR Comments:No Personal access token detected!")
     }
 }
 
@@ -758,11 +787,14 @@ function getInfoFromURL() {
 
 // Get modified or added files url from Github
 async function getPullRequestFiles() {
-    if(token){
+    if(true){
         try {
+            var headersTest = {
+                'Authorization': `token ${'INSERT TOKEN'}`,
+            }
             var urlInfo = getInfoFromURL();
             const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/files`;
-            const response = await fetch(url, { headers: headers });
+            const response = await fetch(url, { headers: headersTest });
             if (!response.ok) {
                 throw new Error(`HTTP Error: ${response.status}`);
             }
@@ -771,7 +803,7 @@ async function getPullRequestFiles() {
         } catch (error) {
         }
     }else{
-        alert("No Personal access token detected!")
+        alert("PR-FILES:No Personal access token detected!")
     }
 }
 
@@ -876,6 +908,96 @@ async function createPrompt(){
         prompt += "return my comment as it is.\n";
     }
     return {"id":idPrompt,"promt":prompt};
+}
+
+async function createPromptsUpdated() {
+    var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
+
+    // Start timer
+    let startTime = performance.now();
+
+    let comments = await getAllPullRequestComments();
+    if (comments) {
+        basePrompt += " Here are the previous comments made on a Pull request:\n";
+        comments.forEach(comment => {
+            basePrompt += '"' + comment + '"\n';
+        });
+    }
+
+    let codeState = await getToggleState('toggleCode');
+    if (codeState === 'checked') {
+        basePrompt += "Here are the file names and code affected by this pull request: \n";
+        let fileContent = await getAllFileContent();
+        if (fileContent) {
+            fileContent.forEach(content => {
+                var name = "File name: " + content.contentName + "\n";
+                var textContent = "Code:\n" + content.decodedContent + "\n";
+                basePrompt += name + textContent;
+            })
+        }
+        basePrompt += "End of code section.\n";
+    }
+
+    let pendingComment = getCurrentComment();
+    console.log("Pending Comment: "+pendingComment);
+    basePrompt += "Here is the pending reply: " + pendingComment + "\n";
+    console.log("Base Prompt: "+basePrompt);
+    let promptsResponsesArray = [];
+    if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
+        console.log("Entering Prompt making");
+        let relevanceState = await getToggleState('toggleRelevance');
+        let toxicState = await getToggleState('toggleToxicity');
+        let reformState = await getToggleState("toggleReform");
+
+        // Function to get the response for each prompt
+        const getResponse = async (additionalPrompt) => {
+            let completePrompt = basePrompt + additionalPrompt;
+            const response = await fetch(url + "generate-prompt", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: completePrompt,
+                    num_tokens: 500
+                })
+            });
+            const responseData = await response.json();
+            return responseData.result.split(additionalPrompt).pop().trim();
+        };
+
+        if (relevanceState === 'checked') {
+            let relevanceResponse = await getResponse("Is the pending reply relevant? Keep your answer within 2 sentences.");
+            promptsResponsesArray.push("Relevance: " + relevanceResponse);
+        }
+        if (toxicState === 'checked') {
+            let toxicResponse = await getResponse("Is the pending reply toxic? Keep your answer within 2 sentences.");
+            promptsResponsesArray.push("Toxicity: " + toxicResponse);
+        }
+        if (reformState === 'checked') {
+            let reformResponse = await getResponse("Reformulate the pending reply in a professional way within 2 sentences.");
+            promptsResponsesArray.push("Reformulation: " + reformResponse);
+        }
+
+        // Check if no prompts were toggled and add a default reply
+        if (promptsResponsesArray.length === 0) {
+            promptsResponsesArray.push("Please toggle a prompt setting.");
+        }
+        
+    // End timer
+    let endTime = performance.now();
+    let timeTaken = endTime - startTime;
+
+    // Add the time count at the end of all responses
+    promptsResponsesArray.push(`Time taken: ${timeTaken.toFixed(2)} ms`);
+    }else {
+        console.log("No comment in text area");
+        promptsResponsesArray.push("Please write a comment in the text area.");
+    }
+
+
+    console.log(promptsResponsesArray);
+    return promptsResponsesArray;
 }
 
 
