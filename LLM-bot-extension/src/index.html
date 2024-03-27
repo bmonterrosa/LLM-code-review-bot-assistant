@@ -68,10 +68,15 @@
                         
                     </label>
                 </div>
+                <label for="llm_selected">Choose an LLM:</label>
                 <div>
-                    <label style="margin: 2px;">LLM used</label>
-                    </br>
-                    <input id="LLM_API" type="text" placeholder="Default" style="margin: 2px;">
+                    <select name="llm_selected" id="llm_selected"> 
+                        <option value = "google/gemma-2b-it">google/gemma-2b-it</option>
+                        <option value = "google/gemma-7b-it"> google/gemma-7b-it</option>
+                        <option value = "codellama/CodeLlama-7b-Instruct-hf">codellama/CodeLlama-7b-Instruct-hf</option>
+                        <option value = "stabilityai/stablelm-3b-4e1t">test</option>
+                    </select>
+                    <button id="llm_change_button">change LLM</button>
                 </div>
                 <div>
                     <label style="margin: 2px;">API URL</label>

@@ -66,6 +66,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     addRelevanceToggle()
     addToxicToggle()
 
+    addEventChangeLLM()
     addEventSaveToken()
 });
 
@@ -558,6 +559,22 @@ async function addToxicToggle(){
     }
 }
 
+// ---------- LLM CHANGE FUNCTIONS ----------
+
+async function addEventChangeLLM(){
+    document.getElementById("llm_change_button").addEventListener("click", async function(){
+        var selectedValue = document.getElementById("llm_selected").value; 
+        alert("Changing LLM please wait... look at console to see when llm is saved")
+        try {
+        // Make a GET request to FastAPI server
+        const response = await fetch(`http://127.0.0.1/changeLLM/?data=${selectedValue}`);
+        //const response = await fetch(`http://127.0.0.1/premierdem`)
+        const data = await response.json()
+        } catch (error) {
+        console.error('Error:', error)
+        }
+    });
+}
 
 
 // ---------- TEXTAREA FUNCTIONS ----------

@@ -100,6 +100,11 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
 def test_read_root():
     return {"Hello": "World"}
 
+@app.get("/changeLLM/")
+async def changeLLM(data: str):
+    logger.info("Changing LLM please wait...")
+    get_model_and_tokenizer(data, AutoModelForCausalLM, AutoTokenizer)
+    print(device)
 
 @app.get("/premierdem")
 def premier_demarrage():
