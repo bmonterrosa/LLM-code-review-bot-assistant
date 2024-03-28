@@ -3,12 +3,7 @@ var llmResponse = "";
 var currentComment;
 var url = 'http://127.0.0.1:80/';
 var promptID = null;
-var token = "";
-var headers = {
-    'Authorization': `token ${token}`,
-}
-
-
+var token = '';
 
 // ---------- LISTENERS ----------
 
@@ -66,7 +61,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     addRelevanceToggle()
     addToxicToggle()
 
-    addEventSaveToken()
+    addEventChangeLLM()
+    addEventGithubSaveToken()
+    addEventHuggingFaceSaveToken()
 });
 
 // Toggle state listener
@@ -265,32 +262,26 @@ function attachIconEvent(icon){
                 resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
             }, interval);
 
-            //Send request to LLM
-            await createPrompt().then(async data =>{
-                await postPrompt(data).then(response => {
-                    clearInterval(intervalId);
-
-                    var res = response.result.toString();
-                    var splitText = res.split('INST]');
-
-                    saveLLMResponse(splitText[splitText.length-1]);
-
-                    chrome.runtime.sendMessage({
-                        from: 'popup',
-                        subject: 'llmResponse',
-                        response: getLLMResponse()
-                    });
-
-                    if(splitText[splitText.length-1].split('"')[1]){
-                        resBox.value = splitText[splitText.length-1].split('"')[1];
-                    }else{
-                        resBox.value = getLLMResponse();
-                    }
-
-                }).catch((error) => {
-                    console.log(error);
-                })
-            })
+            //Call new function HERE but keep old commented
+            try {
+                let promptsResponses = await createPrompts();
+                console.log('promptsResponses bellow');
+                console.log(promptsResponses);
+                clearInterval(intervalId); // Stop the buffering effect
+                // Process and display the responses
+                resBox.value = promptsResponses.join('\n');
+                
+                // Send the result to the background page or wherever it's needed
+                chrome.runtime.sendMessage({
+                    from: 'popup',
+                    subject: 'llmResponse',
+                    response: promptsResponses
+                });
+            } catch (error) {
+                console.error(error);
+                clearInterval(intervalId);
+                resBox.value = "Error: Could not get a response.";
+            }
         } else {
             popup.style.display = 'none';
         }
@@ -558,6 +549,22 @@ async function addToxicToggle(){
     }
 }
 
+// ---------- LLM CHANGE FUNCTIONS ----------
+
+async function addEventChangeLLM(){
+    document.getElementById("llm_change_button").addEventListener("click", async function(){
+        var selectedValue = document.getElementById("llm_selected").value; 
+        alert("Changing LLM please wait... look at console to see when llm is saved")
+        try {
+        // Make a GET request to FastAPI server
+        const response = await fetch(url + `changeLLM/?data=${selectedValue}`);
+        //const response = await fetch(`http://127.0.0.1/premierdem`)
+        const data = await response.json()
+        } catch (error) {
+        console.error('Error:', error)
+        }
+    });
+}
 
 
 // ---------- TEXTAREA FUNCTIONS ----------
@@ -634,15 +641,15 @@ function attachTextAreaEvent(){
         //EventListeners for when user gets out of textarea
          textarea.addEventListener('change', function(event) {
              updateTextArea(event.target.value);
-            if(area){
-                area.style.display = "none";
-            }
+            // if(textarea){
+            //     textarea.style.display = "none";
+            // }
          });
          textarea.addEventListener('blur', function(event) {
              updateTextArea(event.target.value);
-             if(area){
-                area.style.display = "none";
-            }
+            //  if(textarea){
+            //     textarea.style.display = "none";
+            // }
          });
 
         //EventListeners for when user is done writing, get the text is delayed
@@ -685,16 +692,44 @@ function getCurrentComment() {
     return currentComment;
 }
 
+// ----------  HUGGING FACE API FUNCTIONS ---------- 
+
+function setHuggingFaceToken(userToken) {
+    // Save the token to chrome.storage
+    chrome.storage.sync.set({ 'huggingFaceToken': userToken }, function() {
+        console.log('Hugging Face Token is saved');
+    });
+    // Use the token immediately if needed
+}
+
+
+function addEventHuggingFaceSaveToken(){
+    let saveButton = document.getElementById("hugging_face_token_save");
+    saveButton.addEventListener("click", async ()=>{
+        let tokenText = document.getElementById("hugging_face_token");
+        if(tokenText.value){
+            setHuggingFaceToken(tokenText)
+            try {
+                // Make a GET request to FastAPI server
+                const response = await fetch(url + `setHuggingFaceToken/?data=${tokenText.value}`);
+                const data = await response.json()
+                } catch (error) {
+                console.error('Error:', error)
+            }
+        }
+    });
+}
 
 
 // ----------  GITHUB API FUNCTIONS ---------- 
 
-// Token setter
-function setToken(customToken){
-    token = customToken;
-    headers= {
-        'Authorization': `token ${token}`,
-    }
+function setGitHubToken(userToken) {
+    // Save the token to chrome.storage
+    chrome.storage.sync.set({ 'githubToken': userToken }, function() {
+        console.log('GitHub Token is saved');
+    });
+    // Update the local variable if needed for immediate use
+    token = userToken;
 }
 
 // Token getter
@@ -703,23 +738,44 @@ function getToken(){
 }
 
 // Add event listener to watch when token is saved
-function addEventSaveToken(){
-    let saveButton = document.getElementById("TokenSave");
+function addEventGithubSaveToken(){
+    let saveButton = document.getElementById("github_token_save");
     saveButton.addEventListener("click", async ()=>{
-        let tokenText = document.getElementById("github_Token");
+        let tokenText = document.getElementById("github_token");
         if(tokenText.value){
-            setToken(tokenText.value);
+            setGitHubToken(tokenText.value);
         }
     });
 }
 
+function loadGitHubToken() {
+    return new Promise((resolve, reject) => {
+        chrome.storage.sync.get('githubToken', function(result) {
+            if(result.githubToken) {
+                token = result.githubToken;
+                console.log('GitHub Token loaded:', result.githubToken);
+                resolve(result.githubToken);
+            } else {
+                reject('No GitHub Token found');
+            }
+        });
+    });
+}
+
+
+
+
 // Get pull request comments 
 async function getPullRequestComments() {
+    await loadGitHubToken()
+    var headers = {
+        'Authorization': `token ${token}`,
+    }
     if(token){
         try {
             var urlInfo = getInfoFromURL();
             const prUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
-            const reviewsUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pull/${urlInfo.pullNumber}/comments`;
+            const reviewsUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/comments`;
             const prResponse = await fetch(prUrl, { headers: headers });
             if (!prResponse.ok) {
                 throw new Error(`Error: ${prResponse.status}`);
@@ -743,7 +799,7 @@ async function getPullRequestComments() {
             console.log(error);
         }
     }else{
-        alert("No Personal access token detected!")
+        alert("PR-Comments:No Personal access token detected!")
     }
 }
 
@@ -768,6 +824,10 @@ function getInfoFromURL() {
 
 // Get modified or added files url from Github
 async function getPullRequestFiles() {
+    await loadGitHubToken()
+    var headers = {
+        'Authorization': `token ${token}`,
+    }
     if(token){
         try {
             var urlInfo = getInfoFromURL();
@@ -781,29 +841,7 @@ async function getPullRequestFiles() {
         } catch (error) {
         }
     }else{
-        alert("No Personal access token detected!")
-    }
-}
-
-// Seperate the files and get raw content
-async function getFileRawContent(files) {
-    try {
-        const fileContentsPromises = files.map(async file => {
-            const apiURL = file.contents_url;
-            const response = await fetch(apiURL, { headers: headers });
-
-            if (!response.ok) {
-                throw new Error(`HTTP Error: ${response.status}`);
-            }
-            const content = await response.json();
-            const contentName = content.name;
-            const decodedContent = atob(content.content);
-            
-            return {contentName,decodedContent} ;
-        });
-
-        return Promise.all(fileContentsPromises);
-    } catch (error) {
+        alert("PR-FILES:No Personal access token detected!")
     }
 }
 
@@ -811,92 +849,132 @@ async function getFileRawContent(files) {
 function getAllPullRequestComments(){
     return getPullRequestComments().then(comments => {
         if (comments) {
+            console.log("getAllPullRequestComments:" +comments);
             return comments;
         }
         return [];
     });
 }
 
-// Get clean file contents
-function getAllFileContent(){
-    return getPullRequestFiles().then(files => {
-        if (files) {
-            return getFileRawContent(files);
-        }
+//Return an array of strings that contains, filename: + patch
+async function getAllFileContent() {
+    console.log("Entering getAllFileContentUpdated");
+    let files = await getPullRequestFiles();
+    if (!files || files.length === 0) {
+        console.log("No files found or an error occurred.");
         return [];
-    }).then(filesWithContent => {
-        if (filesWithContent) {
-            return filesWithContent;
+    }
+    let filesWithPatches = files.map(file => {
+        if (file.patch) {
+            return `filename: ${file.filename}, patch: ${file.patch}`;
+        } else {
+            return `filename: ${file.filename}, patch: No changes or binary file`;
         }
-        return [];
     });
+    console.log("Modified files with content:", filesWithPatches);
+    return filesWithPatches;
 }
 
 
 
 // ----------  PROMPT FUNCTION ---------- 
 
-async function createPrompt(){
-    var idPrompt = await getPromptID();
-    var prompt = "You are a programmer reviewing and posting comments for a pull requests. \n";
-    let relevanceState = await getToggleState('toggleRelevance');
-    let toxicState = await getToggleState('toggleToxicity');
-    if(relevanceState === 'checked'){
-        prompt += "Determine if a comment is relevant to the code changes or discussion at hand. \n"
+async function createPrompts() {
+    var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
 
-    }
-    if(toxicState === 'checked'){
-        prompt += "Identify if the comment is toxic, unprofessional, or inappropriate in any way. \n"
-            
-    }
-    //Add comments to prompt
+    // Start timer
+    let startTime = performance.now();
+
     let comments = await getAllPullRequestComments();
-    if(comments){
-        prompt += "Past comments made on a Pull request : \n";
+    console.log("Comments before if:" + comments);
+    if (comments) {
+        basePrompt += " Here are the previous comments made on a Pull request: ";
         comments.forEach(comment => {
-            prompt += '"'+comment + '"\n';
+            basePrompt += comment ;
         });
     }
 
     let codeState = await getToggleState('toggleCode');
-    //Add code element to prompt
-    if(codeState === 'checked'){
-        prompt += "Here are files that have been modified or added : \n";
-        let fileContent = await getAllFileContent();
-        if(fileContent){
-            fileContent.forEach(content =>{
-                var name = "File name : " + content.contentName + "\n";
-                var textContent = "code : \n" + content.decodedContent + "\n";
-                prompt += name + textContent;
-            })
-        }
-        prompt += "End of code \n"
-    }
+    if (codeState === 'checked') {
+    basePrompt += "Here are the file names and code affected by this pull request: \n";
+    let fileContents = await getAllFileContent();
 
-    //Get current comment
-    prompt += "Comment to be posted: \n";
-    
-    prompt += "\""+getCurrentComment() + "\". \n";
-   
- 
-    let reformStat = await getToggleState("toggleReform");
-    if(reformStat === 'checked'){
-        prompt += "Reformulate the comment to make it constructive and respectful for a professional code review.\n";
-    }else{
-        prompt += "return my comment as it is.\n";
+    // Add the filename and patch text to the prompt
+    if (fileContents.length > 0) {
+        fileContents.forEach(fileContent => {
+            basePrompt += fileContent + "\n";
+        });
+    } else {
+        basePrompt += "No file changes are available for this pull request.\n";
     }
-    return {"id":idPrompt,"promt":prompt};
+    basePrompt += "End of code section.\n";
+}
+
+
+    let pendingComment = getCurrentComment();
+    basePrompt += "Here is the pending reply: " + pendingComment;
+
+    let promptsResponsesArray = [];
+    if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
+        console.log("Entering Prompt making");
+        let relevanceState = await getToggleState('toggleRelevance');
+        let toxicState = await getToggleState('toggleToxicity');
+        let reformState = await getToggleState("toggleReform");
+
+        // Function to get the response for each prompt
+        const getResponse = async (additionalPrompt) => {
+            let completePrompt = basePrompt + additionalPrompt;
+            console.log("Prompt being processed: " + completePrompt);
+            const response = await fetch(url + "generate-prompt", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: completePrompt,
+                    num_tokens: 500
+                })
+            });
+            const responseData = await response.json();
+            return responseData.result.split(additionalPrompt).pop().trim();
+        };
+
+        if (relevanceState === 'checked') {
+            let relevanceResponse = await getResponse("Now as the helper bot, can you tell If the pending reply relevant? Keep your answer within 2 sentences.");
+            promptsResponsesArray.push("Relevance: " + relevanceResponse);
+        }
+        if (toxicState === 'checked') {
+            let toxicResponse = await getResponse("Now as the helper bot,is the pending reply toxic? Keep your answer within 2 sentences.");
+            promptsResponsesArray.push("Toxicity: " + toxicResponse);
+        }
+        if (reformState === 'checked') {
+            let reformResponse = await getResponse("Now as the helper bot,Reformulate the pending reply in a professional way within 2 sentences.");
+            promptsResponsesArray.push("Reformulation: " + reformResponse);
+        }
+
+        // Check if no prompts were toggled and add a default reply
+        if (promptsResponsesArray.length === 0) {
+            promptsResponsesArray.push("Please toggle a prompt setting.");
+        }
+        
+    // End timer
+    let endTime = performance.now();
+    let timeTaken = endTime - startTime;
+    promptsResponsesArray.push(`Time taken: ${timeTaken.toFixed(2)} ms`);
+    }else {
+        console.log("No comment in text area");
+        promptsResponsesArray.push("Please write a comment in the text area.");
+    }
+    return promptsResponsesArray;
 }
 
 
 
 // ----------  API FUNCTIONS ---------- 
-
 // URL setter
 function setURL(input){
     url = input
 } 
-
 // Check the API connexion
 async function checkConnexion(){
     const response = await fetch(url+"connexion");

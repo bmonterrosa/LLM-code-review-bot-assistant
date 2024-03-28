@@ -1,4 +1,4 @@
-from http.client import HTTPException
+from fastapi import HTTPException
 from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,12 +14,10 @@ import time
 import logging
 import os.path
 import torch
+
 hugging_face_token = os.getenv('HUGGING_FACE_TOKEN')
 
-
-
 device = f'cuda:{cuda.current_device()}' if cuda.is_available() else 'cpu'
-
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -33,7 +31,7 @@ model_loaded=""
 
 save_dir = "/models/"
 
-model_id = "google/gemma-2b"
+model_id = "google/gemma-2b-it"
 offload_folder="/"
 auto_model=AutoModelForCausalLM
 auto_tokenizer=AutoTokenizer
@@ -57,18 +55,11 @@ class PromtRequest(BaseModel):
     id: str
     promt: str
 
+
 class PromptMessage(BaseModel):
     prompt: str
     num_tokens: int
 
-# To faciliate testing, here's an endpoint to test the LLM included.
-# JSON Format should be 
-# {
-#   "prompt": "scenario template",
-#   "num_tokens": 200 or the value you want
-# }
-# Here's a few scenarios exemple: https://docs.google.com/document/d/1OKnzy3pTW6oRd3671XEzIRW34GuDjbHlaVjotqIt6yA/edit
-# If you are having trouble formatting the json, paste the scenario into the template and ask ChatGPT ;)
 
 def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
     global model
@@ -96,10 +87,25 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
         logger.info("This model is already loaded.")
 
 
+get_model_and_tokenizer(model_id, auto_model, auto_tokenizer)
+
+
 @app.get("/")
 def test_read_root():
     return {"Hello": "World"}
 
+@app.get("/setHuggingFaceToken/")
+async def setToken(data: str):
+    logger.info("Setting token...")
+    global hugging_face_token
+    hugging_face_token = data
+    print(device)
+
+@app.get("/changeLLM/")
+async def changeLLM(data: str):
+    logger.info("Changing LLM please wait...")
+    get_model_and_tokenizer(data, AutoModelForCausalLM, AutoTokenizer)
+    print(device)
 
 @app.get("/premierdem")
 def premier_demarrage():
@@ -133,7 +139,7 @@ def generate(request: PromtRequest):
     output = model.generate(
         **inputs,
         max_new_tokens=500,
-        eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
+        # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
     )
     output = output[0].to(device)
 
@@ -215,6 +221,15 @@ def test_save():
     logger.info('--- %s secondes ---' % (time.time() - start_time))
     return {"result": tokenizer.decode(output)}
 
+
+# To faciliate testing, here's an endpoint to test the LLM included.
+# JSON Format should be 
+# {
+#   "prompt": "scenario template",
+#   "num_tokens": 200 or the value you want
+# }
+# Here's a few scenarios exemple: https://docs.google.com/document/d/1OKnzy3pTW6oRd3671XEzIRW34GuDjbHlaVjotqIt6yA/edit
+# If you are having trouble formatting the json, paste the scenario into the template and ask ChatGPT ;)
 @app.post("/generate-prompt")
 def message_generate(request: PromptMessage):
     # Ensure the tokenizer and model are already loaded
@@ -231,7 +246,7 @@ def message_generate(request: PromptMessage):
     output = model.generate(
         **inputs,
         max_new_tokens=request.num_tokens,  # Use the specified number of tokens
-        eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
+        # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
     )
     output = output[0].to(device)
 
