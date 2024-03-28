@@ -102,7 +102,7 @@ def test_read_root():
     return {"Hello": "World"}
 
 @app.get("/setHuggingFaceToken/")
-async def changeLLM(data: str):
+async def setToken(data: str):
     logger.info("Setting token...")
     global hugging_face_token
     hugging_face_token = data

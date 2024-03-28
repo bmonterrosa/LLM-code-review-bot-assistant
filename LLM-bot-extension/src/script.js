@@ -3,7 +3,7 @@ var llmResponse = "";
 var currentComment;
 var url = 'http://127.0.0.1:80/';
 var promptID = null;
-var token = "";
+var token = '';
 var headers = {
     'Authorization': `token ${token}`,
 }
@@ -646,15 +646,9 @@ function attachTextAreaEvent(){
         //EventListeners for when user gets out of textarea
          textarea.addEventListener('change', function(event) {
              updateTextArea(event.target.value);
-            if(textarea){
-                textarea.style.display = "none";
-            }
          });
          textarea.addEventListener('blur', function(event) {
              updateTextArea(event.target.value);
-             if(textarea){
-                textarea.style.display = "none";
-            }
          });
 
         //EventListeners for when user is done writing, get the text is delayed
@@ -740,7 +734,7 @@ function addEventGithubSaveToken(){
     saveButton.addEventListener("click", async ()=>{
         let tokenText = document.getElementById("github_token");
         if(tokenText.value){
-            setGithubToken(tokenText.value);
+            setToken(tokenText.value);
         }
     });
 }
