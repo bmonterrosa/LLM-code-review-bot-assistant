@@ -17,10 +17,7 @@ import torch
 
 hugging_face_token = os.getenv('HUGGING_FACE_TOKEN')
 
-
-
 device = f'cuda:{cuda.current_device()}' if cuda.is_available() else 'cpu'
-
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -58,18 +55,11 @@ class PromtRequest(BaseModel):
     id: str
     promt: str
 
+
 class PromptMessage(BaseModel):
     prompt: str
     num_tokens: int
 
-# To faciliate testing, here's an endpoint to test the LLM included.
-# JSON Format should be 
-# {
-#   "prompt": "scenario template",
-#   "num_tokens": 200 or the value you want
-# }
-# Here's a few scenarios exemple: https://docs.google.com/document/d/1OKnzy3pTW6oRd3671XEzIRW34GuDjbHlaVjotqIt6yA/edit
-# If you are having trouble formatting the json, paste the scenario into the template and ask ChatGPT ;)
 
 def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
     global model
@@ -95,6 +85,9 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
             logger.info("Successfully saved model and tokenizer to volume.")
     else :
         logger.info("This model is already loaded.")
+
+
+get_model_and_tokenizer(model_id, auto_model, auto_tokenizer)
 
 
 @app.get("/")
@@ -228,6 +221,15 @@ def test_save():
     logger.info('--- %s secondes ---' % (time.time() - start_time))
     return {"result": tokenizer.decode(output)}
 
+
+# To faciliate testing, here's an endpoint to test the LLM included.
+# JSON Format should be 
+# {
+#   "prompt": "scenario template",
+#   "num_tokens": 200 or the value you want
+# }
+# Here's a few scenarios exemple: https://docs.google.com/document/d/1OKnzy3pTW6oRd3671XEzIRW34GuDjbHlaVjotqIt6yA/edit
+# If you are having trouble formatting the json, paste the scenario into the template and ask ChatGPT ;)
 @app.post("/generate-prompt")
 def message_generate(request: PromptMessage):
     # Ensure the tokenizer and model are already loaded
