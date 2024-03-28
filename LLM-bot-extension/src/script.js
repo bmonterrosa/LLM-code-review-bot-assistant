@@ -4,12 +4,6 @@ var currentComment;
 var url = 'http://127.0.0.1:80/';
 var promptID = null;
 var token = '';
-var token = "";
-var headers = {
-    'Authorization': `token ${token}`,
-}
-
-
 
 // ---------- LISTENERS ----------
 
@@ -700,13 +694,21 @@ function getCurrentComment() {
 
 // ----------  HUGGING FACE API FUNCTIONS ---------- 
 
+function setHuggingFaceToken(userToken) {
+    // Save the token to chrome.storage
+    chrome.storage.sync.set({ 'huggingFaceToken': userToken }, function() {
+        console.log('Hugging Face Token is saved');
+    });
+    // Use the token immediately if needed
+}
+
 
 function addEventHuggingFaceSaveToken(){
     let saveButton = document.getElementById("hugging_face_token_save");
     saveButton.addEventListener("click", async ()=>{
         let tokenText = document.getElementById("hugging_face_token");
         if(tokenText.value){
-            //setToken(tokenText.value);
+            setHuggingFaceToken(tokenText)
             try {
                 // Make a GET request to FastAPI server
                 const response = await fetch(url + `setHuggingFaceToken/?data=${tokenText.value}`);
@@ -721,13 +723,13 @@ function addEventHuggingFaceSaveToken(){
 
 // ----------  GITHUB API FUNCTIONS ---------- 
 
-// Token setter
-function setToken(userToken) {
+function setGitHubToken(userToken) {
+    // Save the token to chrome.storage
+    chrome.storage.sync.set({ 'githubToken': userToken }, function() {
+        console.log('GitHub Token is saved');
+    });
+    // Update the local variable if needed for immediate use
     token = userToken;
-    // Update the headers with the new token
-    headers = {
-        'Authorization': `token ${token}`,
-    };
 }
 
 // Token getter
@@ -741,15 +743,34 @@ function addEventGithubSaveToken(){
     saveButton.addEventListener("click", async ()=>{
         let tokenText = document.getElementById("github_token");
         if(tokenText.value){
-            setToken(tokenText.value);
+            setGitHubToken(tokenText.value);
         }
+    });
+}
+
+function loadGitHubToken() {
+    return new Promise((resolve, reject) => {
+        chrome.storage.sync.get('githubToken', function(result) {
+            if(result.githubToken) {
+                token = result.githubToken;
+                console.log('GitHub Token loaded:', result.githubToken);
+                resolve(result.githubToken);
+            } else {
+                reject('No GitHub Token found');
+            }
+        });
     });
 }
 
 
 
+
 // Get pull request comments 
 async function getPullRequestComments() {
+    await loadGitHubToken()
+    var headers = {
+        'Authorization': `token ${token}`,
+    }
     if(token){
         try {
             var urlInfo = getInfoFromURL();
@@ -803,6 +824,10 @@ function getInfoFromURL() {
 
 // Get modified or added files url from Github
 async function getPullRequestFiles() {
+    await loadGitHubToken()
+    var headers = {
+        'Authorization': `token ${token}`,
+    }
     if(token){
         try {
             var urlInfo = getInfoFromURL();

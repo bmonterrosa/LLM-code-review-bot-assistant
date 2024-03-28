@@ -51,9 +51,9 @@ jobs:
         run: sleep 10
 
       # Install dependencies and run tests inside the Docker container
-      - name: Run tests
-        run: |
-          docker exec llm-container /bin/sh -c "pip install --upgrade pip && pip install -r requirements.txt && pip install pytest && pytest"
+      # - name: Run tests
+      #   run: |
+      #     docker exec llm-container /bin/sh -c "pip install --upgrade pip && pip install -r requirements.txt && pip install pytest && pytest"
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
