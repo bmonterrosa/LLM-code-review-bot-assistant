@@ -4,6 +4,7 @@ var currentComment;
 var url = 'http://127.0.0.1:80/';
 var promptID = null;
 var token = '';
+var token = "";
 var headers = {
     'Authorization': `token ${token}`,
 }
@@ -646,9 +647,15 @@ function attachTextAreaEvent(){
         //EventListeners for when user gets out of textarea
          textarea.addEventListener('change', function(event) {
              updateTextArea(event.target.value);
+            // if(textarea){
+            //     textarea.style.display = "none";
+            // }
          });
          textarea.addEventListener('blur', function(event) {
              updateTextArea(event.target.value);
+            //  if(textarea){
+            //     textarea.style.display = "none";
+            // }
          });
 
         //EventListeners for when user is done writing, get the text is delayed
@@ -798,10 +805,8 @@ function getInfoFromURL() {
 async function getPullRequestFiles() {
     if(token){
         try {
-            console.log("Entering getPullRequestFiles");
             var urlInfo = getInfoFromURL();
             const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/files`;
-            console.log("Featching Files from url: " + url);
             const response = await fetch(url, { headers: headers });
             if (!response.ok) {
                 throw new Error(`HTTP Error: ${response.status}`);
@@ -819,6 +824,7 @@ async function getPullRequestFiles() {
 function getAllPullRequestComments(){
     return getPullRequestComments().then(comments => {
         if (comments) {
+            console.log("getAllPullRequestComments:" +comments);
             return comments;
         }
         return [];
@@ -855,10 +861,11 @@ async function createPrompts() {
     let startTime = performance.now();
 
     let comments = await getAllPullRequestComments();
-    if (typeof comments === 'string' && comments.trim() !== "") {
-        basePrompt += " Here are the previous comments made on a Pull request:\n";
+    console.log("Comments before if:" + comments);
+    if (comments) {
+        basePrompt += " Here are the previous comments made on a Pull request: ";
         comments.forEach(comment => {
-            basePrompt += '"' + comment + '"\n';
+            basePrompt += comment ;
         });
     }
 
@@ -880,7 +887,7 @@ async function createPrompts() {
 
 
     let pendingComment = getCurrentComment();
-    basePrompt += "Here is the pending reply: " + pendingComment + "\n";
+    basePrompt += "Here is the pending reply: " + pendingComment;
 
     let promptsResponsesArray = [];
     if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
@@ -912,7 +919,7 @@ async function createPrompts() {
             promptsResponsesArray.push("Relevance: " + relevanceResponse);
         }
         if (toxicState === 'checked') {
-            let toxicResponse = await getResponse("Now as the helper bot, can you tell If the pending reply toxic? Keep your answer within 2 sentences.");
+            let toxicResponse = await getResponse("Now as the helper bot,is the pending reply toxic? Keep your answer within 2 sentences.");
             promptsResponsesArray.push("Toxicity: " + toxicResponse);
         }
         if (reformState === 'checked') {
