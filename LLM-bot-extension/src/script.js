@@ -880,39 +880,6 @@ async function getAllFileContent() {
 // ----------  PROMPT FUNCTION ---------- 
 
 async function createPrompts() {
-    var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
-
-    // Start timer
-    let startTime = performance.now();
-
-    let comments = await getAllPullRequestComments();
-    console.log("Comments before if:" + comments);
-    if (comments) {
-        basePrompt += " Here are the previous comments made on a Pull request: ";
-        comments.forEach(comment => {
-            basePrompt += comment ;
-        });
-    }
-
-    let codeState = await getToggleState('toggleCode');
-    if (codeState === 'checked') {
-    basePrompt += "Here are the file names and code affected by this pull request: \n";
-    let fileContents = await getAllFileContent();
-
-    // Add the filename and patch text to the prompt
-    if (fileContents.length > 0) {
-        fileContents.forEach(fileContent => {
-            basePrompt += fileContent + "\n";
-        });
-    } else {
-        basePrompt += "No file changes are available for this pull request.\n";
-    }
-    basePrompt += "End of code section.\n";
-}
-
-
-    let pendingComment = getCurrentComment();
-    basePrompt += "Here is the pending reply: " + pendingComment;
 
     let promptsResponsesArray = [];
     if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
@@ -920,35 +887,39 @@ async function createPrompts() {
         let relevanceState = await getToggleState('toggleRelevance');
         let toxicState = await getToggleState('toggleToxicity');
         let reformState = await getToggleState("toggleReform");
-
-        // Function to get the response for each prompt
-        const getResponse = async (additionalPrompt) => {
-            let completePrompt = basePrompt + additionalPrompt;
-            console.log("Prompt being processed: " + completePrompt);
-            const response = await fetch(url + "generate-prompt", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    prompt: completePrompt,
-                    num_tokens: 500
-                })
-            });
-            const responseData = await response.json();
-            return responseData.result.split(additionalPrompt).pop().trim();
-        };
+        let modelID = await getModelID();
+        console.log("Model_ID = "+ modelID);
 
         if (relevanceState === 'checked') {
-            let relevanceResponse = await getResponse("Now as the helper bot, can you tell If the pending reply relevant? Keep your answer within 2 sentences.");
+            let relevanceResponse;
+            //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createRelevancePrompt();
+            //ELSE SET relevancePrompt WITH PROMPT FROM USER
+            let relevancePrompt = createRelevancePrompt();
+            if(modelID == "google/gemma-2b-it"){relevanceResponse = await getGemmaResponse(relevancePrompt);}else
+            if(modelID == "openai-community/gpt2"){relevanceResponse =  await getChatGPTResponse(relevancePrompt);}
+            else{relevanceResponse = await getDefaultLlmResponse(relevancePrompt);}
             promptsResponsesArray.push("Relevance: " + relevanceResponse);
         }
         if (toxicState === 'checked') {
-            let toxicResponse = await getResponse("Now as the helper bot,is the pending reply toxic? Keep your answer within 2 sentences.");
+            let toxicResponse ;
+            //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createToxicityPrompt();
+            //ELSE SET toxicPrompt WITH PROMPT FROM USER
+            let toxicPrompt = createToxicityPrompt();
+            console.log("ToxicPrompt:"+ toxicPrompt);
+            if(modelID == "google/gemma-2b-it"){toxicResponse =  await getGemmaResponse(toxicPrompt);}else
+            if(modelID == "openai-community/gpt2"){toxicResponse =  await getChatGPTResponse(toxicPrompt);}
+            else{toxicResponse = await getDefaultLlmResponse(toxicPrompt);}
             promptsResponsesArray.push("Toxicity: " + toxicResponse);
         }
         if (reformState === 'checked') {
-            let reformResponse = await getResponse("Now as the helper bot,Reformulate the pending reply in a professional way within 2 sentences.");
+            let reformResponse;
+            //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createReformPrompt();
+            //ELSE SET reformPrompt WITH PROMPT FROM USER
+            let reformPrompt = createReformPrompt();
+            console.log("reformPrompt:"+ reformPrompt);
+            if(modelID == "google/gemma-2b-it"){reformResponse = await getGemmaResponse(reformPrompt);}else 
+            if(modelID == "openai-community/gpt2"){reformResponse = await getChatGPTResponse(reformPrompt);}
+            else{reformResponse = await getDefaultLlmResponse(reformPrompt);}
             promptsResponsesArray.push("Reformulation: " + reformResponse);
         }
 
@@ -968,6 +939,124 @@ async function createPrompts() {
     return promptsResponsesArray;
 }
 
+async function getModelID(){
+    const response = await fetch(url + "getModel", {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+    const responseData = await response.json();
+    return responseData.model_id;
+}
+
+
+// ----------  PROMPTS CREATION ---------- 
+//Returns the toxicity prompt in full
+async function generateBasePrompt(){
+    var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
+    let comments = await getAllPullRequestComments();
+    console.log("Comments before if:" + comments);
+    if (comments) {
+        basePrompt += " Here are the previous comments made on a Pull request: ";
+        comments.forEach(comment => {
+            basePrompt += comment ;
+        });
+    }
+    let codeState = await getToggleState('toggleCode');
+    if (codeState === 'checked') {
+    basePrompt += "Here are the file names and code affected by this pull request: \n";
+    let fileContents = await getAllFileContent();
+
+    // Add the filename and patch text to the prompt
+    if (fileContents.length > 0) {
+        fileContents.forEach(fileContent => {
+            basePrompt += fileContent + "\n";
+        });
+    } else {
+        basePrompt += "No file changes are available for this pull request.\n";
+    }
+    return basePrompt;
+}
+
+async function createToxicityPrompt(){
+    let basePrompt = await generateBasePrompt();
+    let pendingComment = getCurrentComment();
+    basePrompt += "Here is the pending reply: " + pendingComment;
+
+    //Toxicity Prompt
+    basePrompt += "Now as the helper bot, can you tell If the pending reply toxic? Keep your answer within 2 sentences."
+    return basePrompt;
+}
+
+//Returns the toxicity prompt in full
+async function createRelevancePrompt(){
+    let basePrompt = await generateBasePrompt();
+    let pendingComment = getCurrentComment();
+    basePrompt += "Here is the pending reply: " + pendingComment;
+
+    //Relevancy Prompt
+    basePrompt += "Now as the helper bot, can you tell If the pending reply relevant? Keep your answer within 2 sentences."
+    return basePrompt;
+}
+async function createReformPrompt(){
+    let basePrompt = await generateBasePrompt();
+    let pendingComment = getCurrentComment();
+    basePrompt += "Here is the pending reply: " + pendingComment;
+
+    //Reform Prompt
+    basePrompt += "Now as the helper bot,Reformulate the pending reply in a professional way within 2 sentences."
+    return basePrompt;
+}
+
+// ----------  LLM RESPONSE FORMATTING ---------- 
+//Function Used To call Gemma
+async function getGemmaResponse(prompt){
+    const response = await fetch(url + "generate-response-Gemma", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            prompt: prompt,
+            num_tokens: 500
+        })
+    });
+    const responseData = await response.json();
+    //GEMMA always sends the prompt + Reply
+    return responseData.result.split(prompt).pop().trim();
+}
+
+//Function Used To call ChatGPT
+async function getChatGPTResponse(prompt){
+    const response = await fetch(url + "generate-response-chatGPT", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            prompt: prompt,
+            num_tokens: 500
+        })
+    });
+    const responseData = await response.json();
+    return responseData.result; //TO VALIDATE
+}
+
+async function getDefaultLlmResponse(prompt){
+    const response = await fetch(url + "generate-prompt", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            prompt: prompt,
+            num_tokens: 500
+        })
+    });
+    const responseData = await response.json();
+    return responseData.result; 
+}
 
 
 // ----------  API FUNCTIONS ---------- 

@@ -31,7 +31,7 @@ model_loaded=""
 
 save_dir = "/models/"
 
-model_id = "google/gemma-2b-it"
+model_id = "stabilityai/stable-code-instruct-3b"
 offload_folder="/"
 auto_model=AutoModelForCausalLM
 auto_tokenizer=AutoTokenizer
@@ -221,6 +221,9 @@ def test_save():
     logger.info('--- %s secondes ---' % (time.time() - start_time))
     return {"result": tokenizer.decode(output)}
 
+@app.get("/getModelID")
+def get_model():
+    return {"model_id": model_id}
 
 # To faciliate testing, here's an endpoint to test the LLM included.
 # JSON Format should be 
@@ -230,8 +233,8 @@ def test_save():
 # }
 # Here's a few scenarios exemple: https://docs.google.com/document/d/1OKnzy3pTW6oRd3671XEzIRW34GuDjbHlaVjotqIt6yA/edit
 # If you are having trouble formatting the json, paste the scenario into the template and ask ChatGPT ;)
-@app.post("/generate-prompt")
-def message_generate(request: PromptMessage):
+@app.post("/generate-response-Gemma")
+def message_generate_gemma(request: PromptMessage):
     # Ensure the tokenizer and model are already loaded
     if tokenizer == "" or model == "":
         raise HTTPException(status_code=503, detail="Model is not loaded")
@@ -252,5 +255,75 @@ def message_generate(request: PromptMessage):
 
     generated_text = tokenizer.decode(output)
 
+    print(f"--- {(time.time() - start_time)} seconds ---")
+    return {"result": generated_text}
+
+@app.post("/generate-response-chatGPT")
+def message_generate_chatgpt(request: PromptMessage):
+    # Ensure the tokenizer and model are already loaded
+    if tokenizer == "" or model == "":
+        raise HTTPException(status_code=503, detail="Model is not loaded")
+
+    start_time = time.time()
+    prompt = request.prompt.strip()
+
+    # Prepare the prompt for the model
+    inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=True).to(device)
+
+    # Generate the response using the specified number of tokens
+    output = model.generate(
+        **inputs,
+        max_new_tokens=request.num_tokens,  # Use the specified number of tokens
+        # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
+    )
+    output = output[0].to(device)
+    generated_text = tokenizer.decode(output)
+    print(f"--- {(time.time() - start_time)} seconds ---")
+    return {"result": generated_text}
+
+@app.post("/generate-response-stable")
+async def message_generate_stable(request: PromptMessage):
+    # Ensure the tokenizer and model are already loaded
+    if tokenizer == "" or model == "":
+        raise HTTPException(status_code=503, detail="Model is not loaded")
+
+    start_time = time.time()
+    prompt = request.prompt.strip()
+
+    # Prepare the prompt for the model
+    inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=True).to(device)
+
+    # Generate the response using the specified number of tokens
+    output = model.generate(
+        **inputs,
+        max_new_tokens=request.num_tokens,  # Use the specified number of tokens
+        max_length=700
+        # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
+    )
+    output = output[0].to(device)
+    generated_text = tokenizer.decode(output)
+    print(f"--- {(time.time() - start_time)} seconds ---")
+    return {"result": generated_text}
+
+@app.post("/generate-response-default")
+def message_generate_default(request: PromptMessage):
+    # Ensure the tokenizer and model are already loaded
+    if tokenizer == "" or model == "":
+        raise HTTPException(status_code=503, detail="Model is not loaded")
+
+    start_time = time.time()
+    prompt = request.prompt.strip()
+
+    # Prepare the prompt for the model
+    inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=True).to(device)
+
+    # Generate the response using the specified number of tokens
+    output = model.generate(
+        **inputs,
+        max_new_tokens=request.num_tokens,  # Use the specified number of tokens
+        # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
+    )
+    output = output[0].to(device)
+    generated_text = tokenizer.decode(output)
     print(f"--- {(time.time() - start_time)} seconds ---")
     return {"result": generated_text}
