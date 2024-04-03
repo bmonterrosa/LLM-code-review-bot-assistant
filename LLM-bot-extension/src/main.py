@@ -248,7 +248,8 @@ def message_generate_gemma(request: PromptMessage):
     # Generate the response using the specified number of tokens
     output = model.generate(
         **inputs,
-        max_new_tokens=request.num_tokens,  # Use the specified number of tokens
+        #max_new_tokens=request.num_tokens,  # Use the specified number of tokens
+        max_length=request.num_tokens
         # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
     )
     output = output[0].to(device)
@@ -273,7 +274,8 @@ def message_generate_chatgpt(request: PromptMessage):
     # Generate the response using the specified number of tokens
     output = model.generate(
         **inputs,
-        max_new_tokens=request.num_tokens,  # Use the specified number of tokens
+        #max_new_tokens=request.num_tokens,  # Use the specified number of tokens
+        max_length=request.num_tokens
         # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
     )
     output = output[0].to(device)
@@ -295,9 +297,8 @@ async def message_generate_stable(request: PromptMessage):
 
     # Generate the response using the specified number of tokens
     output = model.generate(
-        **inputs,
-        max_new_tokens=request.num_tokens,  # Use the specified number of tokens
-        max_length=700
+        **inputs, # Use the specified number of tokens
+        max_length=request.num_tokens
         # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
     )
     output = output[0].to(device)
