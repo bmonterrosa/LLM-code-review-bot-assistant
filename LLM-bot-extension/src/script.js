@@ -10,9 +10,9 @@ var stabilityAi2b = 'stabilityai/stable-code-instruct-3b';
 
 // ---------- LISTENERS ----------
 
-window.addEventListener('popstate',setupNav);
-window.addEventListener('hashchange',setupNav);
-document.addEventListener('pjax:end',setupNav);
+window.addEventListener('popstate', setupNav);
+window.addEventListener('hashchange', setupNav);
+document.addEventListener('pjax:end', setupNav);
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setupNav);
@@ -21,13 +21,15 @@ if (document.readyState === 'loading') {
 }
 
 // Extension listener
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', async function () {
     //Check if on github
-    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         if (tabs && tabs[0] && tabs[0].url) {
             const currentURL = tabs[0].url;
             if (currentURL.includes("github.com")) {
                 document.getElementById('content').style.display = 'block';
+                updateHuggingFaceTokenIcon();
+                updateGitHubTokenIcon();
             } else {
                 document.getElementById('message').style.display = 'block';
             }
@@ -47,10 +49,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     var resp = await getResponse();
     document.getElementById('full-llm-response').height = 'auto';
-    if(resp){
+    if (resp) {
         document.getElementById('full-llm-response').display = 'block';
         document.getElementById('full-llm-response').value = resp;
-    }else{
+    } else {
         document.getElementById('full-llm-response').display = 'none';
     }
 
@@ -70,10 +72,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 // Toggle state listener
-chrome.runtime.onMessage.addListener(async function(request, sender, sendResponse) {
+chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
     let icon = document.getElementById('LLM_Icon');
     //Update toggle state
-    if(icon&&(request.toggleState == true || request.toggleState == false)){
+    if (icon && (request.toggleState == true || request.toggleState == false)) {
         icon.style.display = request.toggleState ? 'block' : 'none';
         let state = request.toggleState ? "checked" : "not_checked";
         try {
@@ -81,24 +83,24 @@ chrome.runtime.onMessage.addListener(async function(request, sender, sendRespons
             updateIconVisibility()
 
         } catch (error) {
-            console.log("Error:",error);
+            console.log("Error:", error);
         }
     }
 
     //Handle toggle reform comment state
     let copyButton = document.getElementById("copySuggestion");
-    if(copyButton && request.toggleReform != null){
-        if(request.toggleReform){
+    if (copyButton && request.toggleReform != null) {
+        if (request.toggleReform) {
             copyButton.style.display = "flex";
-        }else if(!request.toggleReform){
+        } else if (!request.toggleReform) {
             copyButton.style.display = "none";
         }
     }
-    
+
     //Update Icon when changing tabs 
-    if(request.action === "updateIconOnTabChange"){
+    if (request.action === "updateIconOnTabChange") {
         updateIconVisibility();
-        sendResponse({result: "UpdatedIcon"});
+        sendResponse({ result: "UpdatedIcon" });
     }
 
     return true;
@@ -110,19 +112,19 @@ chrome.runtime.onMessage.addListener(async function(request, sender, sendRespons
 // ---------- GENERAL FUNCTIONS ----------
 
 // Watch changes in the DOM
-function observeDOM(){
-    if(observer){
+function observeDOM() {
+    if (observer) {
         observer.disconnect();
     }
     observer = new MutationObserver(mutations => {
-        mutations.forEach(mutation =>{
-            if(mutation.type === "childList" && mutation.addedNodes.length){
+        mutations.forEach(mutation => {
+            if (mutation.type === "childList" && mutation.addedNodes.length) {
                 checkIcon();
                 attachCopyEvent();
             }
         });
     });
-    
+
     observer.observe(document.body, {
         childList: true,
         subtree: true
@@ -145,7 +147,7 @@ function openTab(tabName) {
 }
 
 // Watch changed when selecting differents tabs in github Single Application Page (SAP)
-async function setupNav(){
+async function setupNav() {
     observeDOM();
     checkIcon();
     attachTextAreaEvent();
@@ -159,21 +161,21 @@ async function setupNav(){
 // ---------- ICONS FUNCTIONS ----------
 
 // Check if icon exists
-function checkIcon(){
+function checkIcon() {
     const newCommentField = document.getElementById("new_comment_field");
     let icon = document.getElementById("LLM_Icon");
-    if(newCommentField && !icon){
+    if (newCommentField && !icon) {
         addIconOverCommentBox();
     }
-    if(icon){
+    if (icon) {
         attachIconEvent(icon);
     }
 }
 
 // Add Icon over github comment box
-async function addIconOverCommentBox(){
+async function addIconOverCommentBox() {
     let textarea = document.getElementById("new_comment_field");
-    if(textarea){
+    if (textarea) {
         try {
             //add a function to add the text area
             add_LLM_Reply_Area();
@@ -181,12 +183,14 @@ async function addIconOverCommentBox(){
             let icon = document.createElement('img');
             icon.id = "LLM_Icon";
             icon.alt = "Icon";
-            icon.src = chrome.runtime.getURL("icon/LLM-bot-NoBackground.png");
-        
-            icon.onmouseover = function() {
+            icon.src = chrome.runtime.getURL("icon/logo-nath-48.png");
+
+
+
+            icon.onmouseover = function () {
                 this.style.transform = "translateY(-10%) scale(1.1)";
             };
-            icon.onmouseout = function() {
+            icon.onmouseout = function () {
                 this.style.transform = "translateY(-10%) scale(1)";
             };
 
@@ -198,8 +202,8 @@ async function addIconOverCommentBox(){
                 top: 50%;
                 transform: translateY(-10%);
                 z-index: 1000;`
-            ;
-            
+                ;
+
             attachIconEvent(icon);
 
             textarea.parentElement.style.position = "relative";
@@ -211,12 +215,12 @@ async function addIconOverCommentBox(){
 }
 
 // LLMResponse setter
-function saveLLMResponse(input){
+function saveLLMResponse(input) {
     llmResponse = input;
 }
 
 // LLMResponse getter
-function getLLMResponse(){
+function getLLMResponse() {
     return llmResponse;
 }
 
@@ -224,26 +228,26 @@ function getLLMResponse(){
 async function getResponse() {
     return new Promise((resolve, reject) => {
         try {
-            chrome.storage.local.get('llmResponse', function(result) {
+            chrome.storage.local.get('llmResponse', function (result) {
                 if (chrome.runtime.lastError) {
                     reject(chrome.runtime.lastError);
                 } else {
                     resolve(result['llmResponse']);
                 }
             });
-        } catch (error) {}
+        } catch (error) { }
     });
 }
 
 // Attach onclick event on LLM Icon
-function attachIconEvent(icon){
-    icon.onmouseover = function() {
+function attachIconEvent(icon) {
+    icon.onmouseover = function () {
         this.style.transform = "translateY(-10%) scale(1.1)";
     };
-    icon.onmouseout = function() {
+    icon.onmouseout = function () {
         this.style.transform = "translateY(-10%) scale(1)";
     };
-    icon.onclick = async function(event) {
+    icon.onclick = async function (event) {
         chrome.runtime.sendMessage({
             from: 'popup',
             subject: 'llmResponse',
@@ -252,7 +256,7 @@ function attachIconEvent(icon){
         event.stopPropagation();
         var popup = document.getElementById('popup-llm');
         if (popup.style.display === 'none') {
-            popup.style.display = 'flex';      
+            popup.style.display = 'flex';
             let resBox = document.getElementById("llm-response");
 
             //Add a buffering effect to the response box
@@ -273,7 +277,7 @@ function attachIconEvent(icon){
                 clearInterval(intervalId); // Stop the buffering effect
                 // Process and display the responses
                 resBox.value = promptsResponses.join('\n');
-                
+
                 // Send the result to the background page or wherever it's needed
                 chrome.runtime.sendMessage({
                     from: 'popup',
@@ -297,17 +301,17 @@ async function updateIconVisibility() {
     var icon = document.getElementById("LLM_Icon");
     var textarea = document.getElementById("popup-llm")
     let currrentState = "";
-    if(icon){
+    if (icon) {
         try {
             currrentState = await getToggleState('toggleState');
             if (currrentState === "checked") {
-                icon.style.display = 'block'; 
+                icon.style.display = 'block';
             } else {
                 icon.style.display = 'none';
                 textarea.style.display = 'none';
             }
         } catch (error) {
-            console.log("Error:",error);
+            console.log("Error:", error);
         }
     }
 }
@@ -320,7 +324,7 @@ async function updateIconVisibility() {
 async function getToggleState(key) {
     return new Promise((resolve, reject) => {
         try {
-            chrome.storage.sync.get([key], function(result) {
+            chrome.storage.sync.get([key], function (result) {
                 if (chrome.runtime.lastError) {
                     reject(chrome.runtime.lastError);
                 } else {
@@ -333,14 +337,14 @@ async function getToggleState(key) {
 }
 
 // Add reformulate toggle
-async function addReformToggle(){
+async function addReformToggle() {
     let lswitch = document.getElementById('reformulationSwitch');
     let currrentState = "";
     let toggle = document.createElement("input");
 
     try {
         currrentState = await getToggleState('toggleReform');
-        if (!currrentState){
+        if (!currrentState) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleReform',
@@ -349,12 +353,12 @@ async function addReformToggle(){
             currrentState = await getToggleState('toggleReform');
         }
     } catch (error) {
-        console.log("Error:",message);
+        console.log("Error:", message);
     }
 
     toggle.type = "checkbox";
     toggle.id = "toggleReform";
-    
+
     let slider = document.createElement("span");
     slider.classList = "slider round";
 
@@ -363,10 +367,10 @@ async function addReformToggle(){
             toggle.checked = true;
         } else {
             toggle.checked = false;
-        }    
+        }
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function() {
+        toggle.addEventListener('change', function () {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleReform',
@@ -377,14 +381,14 @@ async function addReformToggle(){
 }
 
 // Add enable/disable toggle
-async function addStatusToggle(){
+async function addStatusToggle() {
     let lswitch = document.getElementById('enableSwitch');
     let currrentState = "";
     let toggle = document.createElement("input");
 
     try {
         currrentState = await getToggleState('toggleState');
-        if (!currrentState){
+        if (!currrentState) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleState',
@@ -393,12 +397,12 @@ async function addStatusToggle(){
             currrentState = await getToggleState('toggleState');
         }
     } catch (error) {
-        console.log("Error:",message);
+        console.log("Error:", message);
     }
 
     toggle.type = "checkbox";
     toggle.id = "toggleExtension";
-    
+
     let slider = document.createElement("span");
     slider.classList = "slider round";
 
@@ -407,10 +411,10 @@ async function addStatusToggle(){
             toggle.checked = true;
         } else {
             toggle.checked = false;
-        }    
+        }
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function() {
+        toggle.addEventListener('change', function () {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleState',
@@ -421,14 +425,14 @@ async function addStatusToggle(){
 }
 
 // Add code toggle
-async function addCodeToggle(){
+async function addCodeToggle() {
     let lswitch = document.getElementById('codeSwitch');
     let currrentState = "";
     let toggle = document.createElement("input");
 
     try {
         currrentState = await getToggleState('toggleCode');
-        if (!currrentState){
+        if (!currrentState) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleCode',
@@ -437,12 +441,12 @@ async function addCodeToggle(){
             currrentState = await getToggleState('toggleCode');
         }
     } catch (error) {
-        console.log("Error:",message);
+        console.log("Error:", message);
     }
 
     toggle.type = "checkbox";
     toggle.id = "toggleCode";
-    
+
     let slider = document.createElement("span");
     slider.classList = "slider round";
 
@@ -451,10 +455,10 @@ async function addCodeToggle(){
             toggle.checked = true;
         } else {
             toggle.checked = false;
-        }    
+        }
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function() {
+        toggle.addEventListener('change', function () {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleCode',
@@ -465,14 +469,14 @@ async function addCodeToggle(){
 }
 
 // Add relevance toggle
-async function addRelevanceToggle(){
+async function addRelevanceToggle() {
     let lswitch = document.getElementById('relevanceSwitch');
     let currrentState = "";
     let toggle = document.createElement("input");
 
     try {
         currrentState = await getToggleState('toggleRelevance');
-        if (!currrentState){
+        if (!currrentState) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleRelevance',
@@ -481,12 +485,12 @@ async function addRelevanceToggle(){
             currrentState = await getToggleState('toggleRelevance');
         }
     } catch (error) {
-        console.log("Error:",message);
+        console.log("Error:", message);
     }
 
     toggle.type = "checkbox";
     toggle.id = "toggleRelevance";
-    
+
     let slider = document.createElement("span");
     slider.classList = "slider round";
 
@@ -495,10 +499,10 @@ async function addRelevanceToggle(){
             toggle.checked = true;
         } else {
             toggle.checked = false;
-        }    
+        }
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function() {
+        toggle.addEventListener('change', function () {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleRelevance',
@@ -509,14 +513,14 @@ async function addRelevanceToggle(){
 }
 
 // Add toxicity toggle
-async function addToxicToggle(){
+async function addToxicToggle() {
     let lswitch = document.getElementById('toxicitySwitch');
     let currrentState = "";
     let toggle = document.createElement("input");
 
     try {
         currrentState = await getToggleState('toggleToxicity');
-        if (!currrentState){
+        if (!currrentState) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleToxicity',
@@ -525,12 +529,12 @@ async function addToxicToggle(){
             currrentState = await getToggleState('toggleToxicity');
         }
     } catch (error) {
-        console.log("Error:",message);
+        console.log("Error:", message);
     }
 
     toggle.type = "checkbox";
     toggle.id = "toggleToxicity";
-    
+
     let slider = document.createElement("span");
     slider.classList = "slider round";
 
@@ -539,10 +543,10 @@ async function addToxicToggle(){
             toggle.checked = true;
         } else {
             toggle.checked = false;
-        }    
+        }
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function() {
+        toggle.addEventListener('change', function () {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleToxicity',
@@ -554,17 +558,17 @@ async function addToxicToggle(){
 
 // ---------- LLM CHANGE FUNCTIONS ----------
 
-async function addEventChangeLLM(){
-    document.getElementById("llm_change_button").addEventListener("click", async function(){
-        var selectedValue = document.getElementById("llm_selected").value; 
+async function addEventChangeLLM() {
+    document.getElementById("llm_change_button").addEventListener("click", async function () {
+        var selectedValue = document.getElementById("llm_selected").value;
         alert("Changing LLM please wait... look at console to see when llm is saved")
         try {
-        // Make a GET request to FastAPI server
-        const response = await fetch(url + `changeLLM/?data=${selectedValue}`);
-        //const response = await fetch(`http://127.0.0.1/premierdem`)
-        const data = await response.json()
+            // Make a GET request to FastAPI server
+            const response = await fetch(url + `changeLLM/?data=${selectedValue}`);
+            //const response = await fetch(`http://127.0.0.1/premierdem`)
+            const data = await response.json()
         } catch (error) {
-        console.error('Error:', error)
+            console.error('Error:', error)
         }
     });
 }
@@ -573,7 +577,7 @@ async function addEventChangeLLM(){
 // ---------- TEXTAREA FUNCTIONS ----------
 
 // Add Textarea related to icon click
-async function add_LLM_Reply_Area(){
+async function add_LLM_Reply_Area() {
     let parentNode = document.getElementById("partial-new-comment-form-actions");
     if (!parentNode) {
         console.error("Div not found for textArea");
@@ -581,7 +585,7 @@ async function add_LLM_Reply_Area(){
     }
 
     const divNode = document.createElement("div");
-    divNode.id="popup-llm";
+    divNode.id = "popup-llm";
     divNode.style.cssText = `
         display: none; 
         justify-content: space-between;
@@ -590,7 +594,7 @@ async function add_LLM_Reply_Area(){
         width: 100%;
         resize:none;
     `;
-    
+
     divNode.innerHTML = `
         <div style="flex-grow: 1;margin-right: 4px; margin-top:2px;">
             <textarea readonly id="llm-response" class="Box" style="border: 2px solid #3b7fac; min-height:32px; height:35px; width: 100%; resize:vertical; margin-right:2px;">Waiting for LLM response ... </textarea>
@@ -606,10 +610,10 @@ async function add_LLM_Reply_Area(){
     //Check for reform state for copy button
     let copyButton = document.getElementById("copySuggestion");
     let reformState = await getToggleState("toggleReform");
-    if(copyButton && reformState != null){
-        if(reformState === "checked"){
+    if (copyButton && reformState != null) {
+        if (reformState === "checked") {
             copyButton.style.display = "flex";
-        }else if(reformState === "not_checked"){
+        } else if (reformState === "not_checked") {
             copyButton.style.display = "none";
         }
     }
@@ -618,17 +622,17 @@ async function add_LLM_Reply_Area(){
 // Copy text
 function copyToClipboard() {
     const text = document.getElementById('llm-response').value;
-    if(text){
-        navigator.clipboard.writeText(text).then(() => {}).catch(error => {
+    if (text) {
+        navigator.clipboard.writeText(text).then(() => { }).catch(error => {
             console.error('Can\'t copy text: ', error);
         });
     }
 }
 
 // Add copy button event listener
-function attachCopyEvent(){
-    if(document.getElementById("copySuggestion")){
-        document.addEventListener('click', function(event) {
+function attachCopyEvent() {
+    if (document.getElementById("copySuggestion")) {
+        document.addEventListener('click', function (event) {
             if (event.target.id === 'copySuggestion') {
                 event.preventDefault();
                 copyToClipboard();
@@ -638,55 +642,55 @@ function attachCopyEvent(){
 }
 
 // Add text area event listener
-function attachTextAreaEvent(){
-     let textarea = document.getElementById("new_comment_field");
-     if(textarea){
+function attachTextAreaEvent() {
+    let textarea = document.getElementById("new_comment_field");
+    if (textarea) {
         //EventListeners for when user gets out of textarea
-         textarea.addEventListener('change', function(event) {
-             updateTextArea(event.target.value);
+        textarea.addEventListener('change', function (event) {
+            updateTextArea(event.target.value);
             // if(textarea){
             //     textarea.style.display = "none";
             // }
-         });
-         textarea.addEventListener('blur', function(event) {
-             updateTextArea(event.target.value);
+        });
+        textarea.addEventListener('blur', function (event) {
+            updateTextArea(event.target.value);
             //  if(textarea){
             //     textarea.style.display = "none";
             // }
-         });
+        });
 
         //EventListeners for when user is done writing, get the text is delayed
-         textarea.addEventListener('input', getTextOvertime(function(event) {
-             updateTextArea(event.target.value); 
-             if(event.target.value.length == 0){
+        textarea.addEventListener('input', getTextOvertime(function (event) {
+            updateTextArea(event.target.value);
+            if (event.target.value.length == 0) {
                 resBox.value = "Waiting on LLM to review comment";
             }
-         }),1000);
+        }), 1000);
 
-       
-     }
- }
+
+    }
+}
 
 // Delay the get of the input
-function getTextOvertime(func,waitingFunc){
+function getTextOvertime(func, waitingFunc) {
     let time;
-    return function execute(...args){
-        const overtime = function(){
+    return function execute(...args) {
+        const overtime = function () {
             clearTimeout(time);
             func(...args);
         };
         clearTimeout(time);
-        time = setTimeout(overtime,waitingFunc)
-    }    
+        time = setTimeout(overtime, waitingFunc)
+    }
 }
 
 // Save with given texte
-async function updateTextArea(input){
+async function updateTextArea(input) {
     setCurrentComment(input);
 }
 
 // Currentcomment setter
-function setCurrentComment(input){
+function setCurrentComment(input) {
     currentComment = input;
 }
 
@@ -699,24 +703,39 @@ function getCurrentComment() {
 
 function setHuggingFaceToken(userToken) {
     // Save the token to chrome.storage
-    chrome.storage.sync.set({ 'huggingFaceToken': userToken }, function() {
+    chrome.storage.sync.set({ 'huggingFaceToken': userToken }, function () {
         console.log('Hugging Face Token is saved');
+        updateHuggingFaceTokenIcon();
     });
     // Use the token immediately if needed
 }
 
+function updateHuggingFaceTokenIcon() {
+    chrome.storage.sync.get('huggingFaceToken', function (result) {
+        if (result.huggingFaceToken) {
+            // Token found, display green check
+            document.getElementById('hugging_face_icon').textContent = '✅'; // Replace with your icon for success
+            document.getElementById('hugging_face_icon').className = 'icon-success';
+        } else {
+            // Token not found, display red X
+            document.getElementById('hugging_face_icon').textContent = '❌'; // Replace with your icon for failure
+            document.getElementById('hugging_face_icon').className = 'icon-fail';
+        }
+    });
+}
 
-function addEventHuggingFaceSaveToken(){
+
+function addEventHuggingFaceSaveToken() {
     let saveButton = document.getElementById("hugging_face_token_save");
-    saveButton.addEventListener("click", async ()=>{
+    saveButton.addEventListener("click", async () => {
         let tokenText = document.getElementById("hugging_face_token");
-        if(tokenText.value){
+        if (tokenText.value) {
             setHuggingFaceToken(tokenText)
             try {
                 // Make a GET request to FastAPI server
                 const response = await fetch(url + `setHuggingFaceToken/?data=${tokenText.value}`);
                 const data = await response.json()
-                } catch (error) {
+            } catch (error) {
                 console.error('Error:', error)
             }
         }
@@ -728,33 +747,48 @@ function addEventHuggingFaceSaveToken(){
 
 function setGitHubToken(userToken) {
     // Save the token to chrome.storage
-    chrome.storage.sync.set({ 'githubToken': userToken }, function() {
+    chrome.storage.sync.set({ 'githubToken': userToken }, function () {
         console.log('GitHub Token is saved');
+        updateGitHubTokenIcon();
     });
     // Update the local variable if needed for immediate use
     token = userToken;
 }
 
 // Token getter
-function getToken(){
+function getToken() {
     return token;
 }
 
 // Add event listener to watch when token is saved
-function addEventGithubSaveToken(){
+function addEventGithubSaveToken() {
     let saveButton = document.getElementById("github_token_save");
-    saveButton.addEventListener("click", async ()=>{
+    saveButton.addEventListener("click", async () => {
         let tokenText = document.getElementById("github_token");
-        if(tokenText.value){
+        if (tokenText.value) {
             setGitHubToken(tokenText.value);
         }
     });
 }
 
+function updateGitHubTokenIcon() {
+    chrome.storage.sync.get('githubToken', function (result) {
+        if (result.githubToken) {
+            document.getElementById('github_icon').textContent = '✅'; // Replace with your icon for success
+            document.getElementById('github_icon').className = 'icon-success';
+        } else {
+            document.getElementById('github_icon').textContent = '❌'; // Replace with your icon for failure
+            document.getElementById('github_icon').className = 'icon-fail';
+        }
+    });
+}
+
+
+
 function loadGitHubToken() {
     return new Promise((resolve, reject) => {
-        chrome.storage.sync.get('githubToken', function(result) {
-            if(result.githubToken) {
+        chrome.storage.sync.get('githubToken', function (result) {
+            if (result.githubToken) {
                 token = result.githubToken;
                 console.log('GitHub Token loaded:', result.githubToken);
                 resolve(result.githubToken);
@@ -774,7 +808,7 @@ async function getPullRequestComments() {
     var headers = {
         'Authorization': `token ${token}`,
     }
-    if(token){
+    if (token) {
         try {
             var urlInfo = getInfoFromURL();
             const prUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
@@ -787,13 +821,13 @@ async function getPullRequestComments() {
             if (!reviewsResponse.ok) {
                 throw new Error(`Error: ${reviewsResponse.status}`);
             }
-            const prData = await prResponse.json(); 
+            const prData = await prResponse.json();
             const prComments = prData.map(async prComment => {
                 if (prComment.user.login != "github-actions[bot]") {
                     return prComment.body;
                 }
             });
-            const reviewsData= await reviewsResponse.json(); 
+            const reviewsData = await reviewsResponse.json();
             const reviewsComments = reviewsData.map(async reviewsComment => {
                 return reviewsComment.body;
             });
@@ -801,7 +835,7 @@ async function getPullRequestComments() {
         } catch (error) {
             console.log(error);
         }
-    }else{
+    } else {
         alert("PR-Comments:No Personal access token detected!")
     }
 }
@@ -831,7 +865,7 @@ async function getPullRequestFiles() {
     var headers = {
         'Authorization': `token ${token}`,
     }
-    if(token){
+    if (token) {
         try {
             var urlInfo = getInfoFromURL();
             const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/files`;
@@ -843,13 +877,13 @@ async function getPullRequestFiles() {
             return files;
         } catch (error) {
         }
-    }else{
+    } else {
         alert("PR-FILES:No Personal access token detected!")
     }
 }
 
 // Get clean comments
-function getAllPullRequestComments(){
+function getAllPullRequestComments() {
     return getPullRequestComments().then(comments => {
         if (comments) {
             //console.log("getAllPullRequestComments:" +comments);
@@ -892,28 +926,28 @@ async function createPrompts() {
         let toxicState = await getToggleState('toggleToxicity');
         let reformState = await getToggleState("toggleReform");
         let modelID = await getModelID();
-        console.log("Model_ID used= "+ modelID);
+        console.log("Model_ID used= " + modelID);
 
         if (relevanceState === 'checked') {
             let relevanceResponse;
             //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createRelevancePrompt();
             //ELSE SET relevancePrompt WITH PROMPT FROM USER
             let relevancePrompt = await createRelevancePrompt();
-            console.log("Relevance Prompt: "+ relevancePrompt);
-            if(modelID == googleGemma2b){relevanceResponse = await getGemmaResponse(relevancePrompt);}else
-            if(modelID == stabilityAi2b){relevanceResponse =  await getStableResponse(relevancePrompt);}
-            else{relevanceResponse = await getDefaultLlmResponse(relevancePrompt);}
+            console.log("Relevance Prompt: " + relevancePrompt);
+            if (modelID == googleGemma2b) { relevanceResponse = await getGemmaResponse(relevancePrompt); } else
+                if (modelID == stabilityAi2b) { relevanceResponse = await getStableResponse(relevancePrompt); }
+                else { relevanceResponse = await getDefaultLlmResponse(relevancePrompt); }
             promptsResponsesArray.push("Relevance: " + relevanceResponse);
         }
         if (toxicState === 'checked') {
-            let toxicResponse ;
+            let toxicResponse;
             //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createToxicityPrompt();
             //ELSE SET toxicPrompt WITH PROMPT FROM USER
             let toxicPrompt = await createToxicityPrompt();
-            console.log("Toxic Prompt:"+ toxicPrompt);
-            if(modelID == googleGemma2b){toxicResponse =  await getGemmaResponse(toxicPrompt);}else
-            if(modelID == stabilityAi2b){toxicResponse =  await getStableResponse(toxicPrompt);}
-            else{toxicResponse = await getDefaultLlmResponse(toxicPrompt);}
+            console.log("Toxic Prompt:" + toxicPrompt);
+            if (modelID == googleGemma2b) { toxicResponse = await getGemmaResponse(toxicPrompt); } else
+                if (modelID == stabilityAi2b) { toxicResponse = await getStableResponse(toxicPrompt); }
+                else { toxicResponse = await getDefaultLlmResponse(toxicPrompt); }
             promptsResponsesArray.push("Toxicity: " + toxicResponse);
         }
         if (reformState === 'checked') {
@@ -921,30 +955,30 @@ async function createPrompts() {
             //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createReformPrompt();
             //ELSE SET reformPrompt WITH PROMPT FROM USER
             let reformPrompt = await createReformPrompt();
-            console.log("reform Prompt:"+ reformPrompt);
-            if(modelID == googleGemma2b){reformResponse = await getGemmaResponse(reformPrompt);}else 
-            if(modelID == stabilityAi2b){reformResponse = await getStableResponse(reformPrompt);}
-            else{reformResponse = await getDefaultLlmResponse(reformPrompt);}
+            console.log("reform Prompt:" + reformPrompt);
+            if (modelID == googleGemma2b) { reformResponse = await getGemmaResponse(reformPrompt); } else
+                if (modelID == stabilityAi2b) { reformResponse = await getStableResponse(reformPrompt); }
+                else { reformResponse = await getDefaultLlmResponse(reformPrompt); }
             promptsResponsesArray.push("Reformulation: " + reformResponse);
         }
-        console.log("promptsResponses Array: "+ promptsResponsesArray);
+        console.log("promptsResponses Array: " + promptsResponsesArray);
         // Check if no prompts were toggled and add a default reply
         if (promptsResponsesArray.length === 0) {
             promptsResponsesArray.push("Please toggle a prompt setting.");
         }
-        
-    // End timer
-    let endTime = performance.now();
-    let timeTaken = endTime - startTime;
-    promptsResponsesArray.push(`Time taken: ${timeTaken.toFixed(2)} ms`);
-    }else {
+
+        // End timer
+        let endTime = performance.now();
+        let timeTaken = endTime - startTime;
+        promptsResponsesArray.push(`Time taken: ${timeTaken.toFixed(2)} ms`);
+    } else {
         console.log("No comment in text area");
         promptsResponsesArray.push("Please write a comment in the text area.");
     }
     return promptsResponsesArray;
 }
 
-async function getModelID(){
+async function getModelID() {
     const response = await fetch(url + "getModelID", {
         method: 'GET',
         headers: {
@@ -986,21 +1020,21 @@ async function generateBasePrompt() {
 }
 
 
-async function createToxicityPrompt(){
+async function createToxicityPrompt() {
     let basePrompt = await generateBasePrompt();
-    console.log("Toxic Base Prompt:"+ basePrompt);
+    console.log("Toxic Base Prompt:" + basePrompt);
     let pendingComment = getCurrentComment();
     basePrompt += "Here is the pending reply: " + pendingComment;
-    console.log("Toxic Base + pending Prompt:"+ basePrompt);
+    console.log("Toxic Base + pending Prompt:" + basePrompt);
 
     //Toxicity Prompt
     basePrompt += "Now as the helper bot, can you tell If the pending reply toxic? Your answer must be 2 sentences maximum and direct."
-    console.log("Final Toxic prompt: "+ basePrompt);
+    console.log("Final Toxic prompt: " + basePrompt);
     return basePrompt;
 }
 
 //Returns the toxicity prompt in full
-async function createRelevancePrompt(){
+async function createRelevancePrompt() {
     let basePrompt = await generateBasePrompt();
     let pendingComment = getCurrentComment();
     basePrompt += "Here is the pending reply: " + pendingComment;
@@ -1009,7 +1043,7 @@ async function createRelevancePrompt(){
     basePrompt += "Now as the helper bot, can you tell If the pending reply relevant? Your answer must be 2 sentences maximum and direct."
     return basePrompt;
 }
-async function createReformPrompt(){
+async function createReformPrompt() {
     let basePrompt = await generateBasePrompt();
     let pendingComment = getCurrentComment();
     basePrompt += "Here is the pending reply: " + pendingComment;
@@ -1021,7 +1055,7 @@ async function createReformPrompt(){
 
 // ----------  GET LLM RESPONSE + FORMATTING ---------- 
 //Function Used To call Gemma
-async function getGemmaResponse(prompt){
+async function getGemmaResponse(prompt) {
     const response = await fetch(url + "generate-response-Gemma", {
         method: 'POST',
         headers: {
@@ -1038,7 +1072,7 @@ async function getGemmaResponse(prompt){
 }
 
 //Function Used To call stabilityai
-async function getStableResponse(prompt){
+async function getStableResponse(prompt) {
     const response = await fetch(url + "generate-response-stable", {
         method: 'POST',
         headers: {
@@ -1054,7 +1088,7 @@ async function getStableResponse(prompt){
     return responseData.result.split(prompt).pop().trim();
 }
 
-async function getDefaultLlmResponse(prompt){
+async function getDefaultLlmResponse(prompt) {
     const response = await fetch(url + "generate-default-response", {
         method: 'POST',
         headers: {
@@ -1066,33 +1100,33 @@ async function getDefaultLlmResponse(prompt){
         })
     });
     const responseData = await response.json();
-    return responseData.result; 
+    return responseData.result;
 }
 
 
 // ----------  API FUNCTIONS ---------- 
 // URL setter
-function setURL(input){
+function setURL(input) {
     url = input
-} 
+}
 // Check the API connexion
-async function checkConnexion(){
-    const response = await fetch(url+"connexion");
+async function checkConnexion() {
+    const response = await fetch(url + "connexion");
     return response.json();
 }
 
 // PromptID setter
-async function setPromptID(id){
+async function setPromptID(id) {
     promptID = id;
 }
 
 // PromptID getter
-async function getPromptID(){
-    if(promptID==null){
-        await checkConnexion().then(response =>{
+async function getPromptID() {
+    if (promptID == null) {
+        await checkConnexion().then(response => {
             setPromptID(response.id);
             return response.id;
-        }).catch((error)=>{
+        }).catch((error) => {
             console.log(error);
         });
     }
@@ -1100,13 +1134,13 @@ async function getPromptID(){
 }
 
 // Send POST request to API with prompt
-async function postPrompt(data){
-    const response = await fetch(url+"generate",{
+async function postPrompt(data) {
+    const response = await fetch(url + "generate", {
         method: 'POST',
         headers: {
-            'Content-Type':'application/json'
+            'Content-Type': 'application/json'
         },
-        body:JSON.stringify(data)
+        body: JSON.stringify(data)
     });
     return response.json();
 }
