@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     addStatusToggle();
 
     addReviewsToggle()
+    addCodeToggle()
     addRelevanceToggle()
     addToxicToggle()
 
@@ -412,6 +413,50 @@ async function addStatusToggle(){
                 from: 'popup',
                 subject: 'toggleState',
                 toggleState: toggle.checked
+            });
+        });
+    }
+}
+
+// Add code toggle
+async function addCodeToggle(){
+    let lswitch = document.getElementById('codeSwitch');
+    let currrentState = "";
+    let toggle = document.createElement("input");
+
+    try {
+        currrentState = await getToggleState('toggleCode');
+        if (!currrentState){
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleCode',
+                toggleReform: toggle.checked
+            });
+            currrentState = await getToggleState('toggleCode');
+        }
+    } catch (error) {
+        console.log("Error:",message);
+    }
+
+    toggle.type = "checkbox";
+    toggle.id = "toggleCode";
+    
+    let slider = document.createElement("span");
+    slider.classList = "slider round";
+
+    if (lswitch) {
+        if (currrentState === "checked") {
+            toggle.checked = true;
+        } else {
+            toggle.checked = false;
+        }    
+        lswitch.appendChild(toggle);
+        lswitch.appendChild(slider);
+        toggle.addEventListener('change', function() {
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleCode',
+                toggleCode: toggle.checked
             });
         });
     }
@@ -910,10 +955,8 @@ async function getAllFileContent() {
 
 async function createPrompts() {
     var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
-
     // Start timer
     let startTime = performance.now();
-
     let comments = await getAllPullRequestComments();
     console.log("Comments before if:" + comments);
     if (comments) {
@@ -922,7 +965,21 @@ async function createPrompts() {
             basePrompt += comment + "\n";
         });
     }
-
+    // Include files changed
+    let codeState = await getToggleState('toggleCode');
+    if (codeState === 'checked') {
+        basePrompt += "Here are the file names and code affected by this pull request : \n";
+        let fileContents = await getAllFileContent();
+        if (fileContents.length > 0) {
+            fileContents.forEach(fileContent => {
+                basePrompt += fileContent + "\n";
+            });
+        } else {
+            basePrompt += "No file changes are available for this pull request.\n";
+        }
+        basePrompt += "End of code section.\n";
+    }
+    // Inlcude reviews
     let reviewsState = await getToggleState('toggleReviews');
     if (reviewsState === 'checked') {
         let reviews = await getAllPullRequestReviews();
@@ -934,10 +991,8 @@ async function createPrompts() {
         }
         basePrompt += "End of reviews.\n";
     }
-
     let pendingComment = getCurrentComment();
     basePrompt += "Here is the pending reply : " + pendingComment + "\n";
-
     let promptsResponsesArray = [];
     if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
         console.log("Entering Prompt making");
@@ -962,31 +1017,21 @@ async function createPrompts() {
             const responseData = await response.json();
             return responseData.result.split(additionalPrompt).pop().trim();
         };
-
+        // Relevance
         if (relevanceState === 'checked') {
-            // Get files changed for relevance check
-            basePrompt += "Here are the file names and code affected by this pull request : \n";
-            let fileContents = await getAllFileContent();
-            if (fileContents.length > 0) {
-                fileContents.forEach(fileContent => {
-                    basePrompt += fileContent + "\n";
-                });
-            } else {
-                basePrompt += "No file changes are available for this pull request.\n";
-            }
-            basePrompt += "End of code section.\n";
             let relevanceResponse = await getResponse("Now as the helper bot, can you tell If the pending reply relevant? Keep your answer within 2 sentences.\n");
             promptsResponsesArray.push("Relevance: " + relevanceResponse);
         }
+        // Toxicity
         if (toxicState === 'checked') {
             let toxicResponse = await getResponse("Now as the helper bot,is the pending reply toxic? Keep your answer within 2 sentences.\n");
             promptsResponsesArray.push("Toxicity: " + toxicResponse);
         }
+        // Reformulation
         if (reformState === 'checked') {
             let reformResponse = await getResponse("Now as the helper bot,Reformulate the pending reply in a professional way within 2 sentences.\n");
             promptsResponsesArray.push("Reformulation: " + reformResponse);
         }
-
         // Check if no prompts were toggled and add a default reply
         if (promptsResponsesArray.length === 0) {
             promptsResponsesArray.push("Please toggle a prompt setting.");
@@ -996,7 +1041,7 @@ async function createPrompts() {
     let endTime = performance.now();
     let timeTaken = endTime - startTime;
     promptsResponsesArray.push(`Time taken: ${timeTaken.toFixed(2)} ms`);
-    }else {
+    } else {
         console.log("No comment in text area");
         promptsResponsesArray.push("Please write a comment in the text area.");
     }
