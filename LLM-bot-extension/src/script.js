@@ -6,6 +6,7 @@ var promptID = null;
 var token = '';
 var googleGemma2b = 'google/gemma-2b-it';
 var stabilityAi2b = 'stabilityai/stable-code-instruct-3b';
+const defaultLLMs = ['google/gemma-2b-it', 'stabilityai/stable-code-instruct-3b', 'codellama/CodeLlama-7b-Instruct-hf'];
 
 
 // ---------- LISTENERS ----------
@@ -66,9 +67,12 @@ document.addEventListener('DOMContentLoaded', async function () {
     addRelevanceToggle()
     addToxicToggle()
 
-    addEventChangeLLM()
+    initializeLlmDropdown()
+    addEventLoadLLM()
+    addEventDeleteLLM()
     addEventGithubSaveToken()
     addEventHuggingFaceSaveToken()
+    addEventSaveCustomLLM()
 });
 
 // Toggle state listener
@@ -558,20 +562,104 @@ async function addToxicToggle() {
 
 // ---------- LLM CHANGE FUNCTIONS ----------
 
-async function addEventChangeLLM() {
+
+function initializeLlmDropdown() {
+    chrome.storage.sync.get({ customLlms: [] }, function (result) {
+        const llmDropdown = document.getElementById('llm_selected');
+        result.customLlms.forEach(llmId => {
+            const newOption = new Option(llmId, llmId, false, false);
+            llmDropdown.add(newOption, undefined);
+        });
+    });
+}
+
+async function addEventLoadLLM() {
     document.getElementById("llm_change_button").addEventListener("click", async function () {
         var selectedValue = document.getElementById("llm_selected").value;
+
         alert("Changing LLM please wait... look at console to see when llm is saved")
         try {
             // Make a GET request to FastAPI server
             const response = await fetch(url + `changeLLM/?data=${selectedValue}`);
             //const response = await fetch(`http://127.0.0.1/premierdem`)
             const data = await response.json()
+            alert('LLM loaded sucessfully');
+            chrome.storage.sync.set({ "selectedLlmId": selectedValue }, function() {
+                console.log('The LLM ID has been saved.');
+            });
         } catch (error) {
             console.error('Error:', error)
+            alert('Error:', error)
         }
     });
 }
+
+function addEventDeleteLLM() {
+    document.getElementById("llm_delete_button").addEventListener("click", async function () {
+        var selectedValue = document.getElementById("llm_selected").value;
+        // Define default LLMs for comparison
+        //const defaultLLMs = ['google/gemma-2b-it', 'stabilityai/stable-code-instruct-3b', 'codellama/CodeLlama-7b-Instruct-hf'];
+
+        // Check if selected value is not a default LLM
+        if (!defaultLLMs.includes(selectedValue)) {
+            try {
+                // Remove the option from the dropdown
+                var select = document.getElementById("llm_selected");
+                select.removeChild(select.options[select.selectedIndex]);
+
+                // Update Chrome storage
+                chrome.storage.sync.get({ customLlms: [] }, function (result) {
+                    const filteredCustomLlms = result.customLlms.filter(llm => llm !== selectedValue);
+                    chrome.storage.sync.set({ customLlms: filteredCustomLlms }, function () {
+                        console.log('Custom LLM removed:', selectedValue);
+                        alert('Custom LLM removed');
+                    });
+                });
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        } else {
+            console.log('Cannot remove a default LLM');
+            alert('Cannot remove a default LLM');
+        }
+    });
+}
+
+function addEventSaveCustomLLM() {
+    document.getElementById("custom_llm_save").addEventListener("click", async function () {
+        var selectedValue = document.getElementById("custom_llm").value.trim();
+        if (!selectedValue) {
+            return;
+        }
+
+        try {
+            chrome.storage.sync.get({ customLlms: [] }, function (result) {
+                const customLlms = result.customLlms;
+                // Check if the LLM ID is already saved
+                if (!customLlms.includes(selectedValue)) {
+                    customLlms.push(selectedValue); // Add the new LLM ID
+                    chrome.storage.sync.set({ customLlms: customLlms }, function () {
+                        console.log('Adding Custom LLM', selectedValue);
+                        alert('Adding Custom LLM');
+                        // Add the new LLM ID to the dropdown
+                        const llmDropdown = document.getElementById('llm_selected');
+                        const newOption = new Option(selectedValue, selectedValue, false, false);
+                        llmDropdown.add(newOption, undefined);
+
+                        // Optionally, clear the input field
+                        document.getElementById("custom_llm").value = "";
+                    });
+                } else {
+                    alert("This LLM ID is already added.");
+                }
+            });
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+}
+
+
 
 
 // ---------- TEXTAREA FUNCTIONS ----------
@@ -925,7 +1013,7 @@ async function createPrompts() {
         let relevanceState = await getToggleState('toggleRelevance');
         let toxicState = await getToggleState('toggleToxicity');
         let reformState = await getToggleState("toggleReform");
-        let modelID = await getModelID();
+        let modelID = chrome.storage.sync.get("selectedLlmId");
         console.log("Model_ID used= " + modelID);
 
         if (relevanceState === 'checked') {
@@ -976,17 +1064,6 @@ async function createPrompts() {
         promptsResponsesArray.push("Please write a comment in the text area.");
     }
     return promptsResponsesArray;
-}
-
-async function getModelID() {
-    const response = await fetch(url + "getModelID", {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    });
-    const responseData = await response.json();
-    return responseData.model_id;
 }
 
 

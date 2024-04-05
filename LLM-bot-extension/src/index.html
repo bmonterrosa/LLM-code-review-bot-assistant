@@ -21,7 +21,7 @@
             <button class="tablinks" id="settingsTab">Settings</button>
         </div>
         <div id="View" class="tabcontent">
-            <h1>GitHub LLM Bot</h1>
+            <h1>Pull Request bot</h1>
             <div class="setting-item">
                 <span>
                     Enable Extension
@@ -79,9 +79,19 @@
                         <option value="stabilityai/stable-code-instruct-3b"> stabilityai/stable-code-instruct-3b
                         </option>
                         <option value="codellama/CodeLlama-7b-Instruct-hf">codellama/CodeLlama-7b-Instruct-hf</option>
-                        <option value="custom">custom</option>
                     </select>
                     <button id="llm_change_button" style="float: right;">Load</button>
+                    <label style="float: right;">&nbsp;</label>
+                    <button id="llm_delete_button" style="float: right;">Delete</button>
+                </div>
+                </br>
+                <div>
+                    <label style="margin: 2px;">Add an LLM with ID</label>
+                    </br>
+                    <span>
+                        <input id="custom_llm" type="text" style="margin: 2px;">
+                        <button class="" id="custom_llm_save" style="float: right;">Save</button>
+                    </span>
                 </div>
                 </br>
                 <div>
