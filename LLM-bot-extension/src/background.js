@@ -19,7 +19,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
                 if(tabs.length>0){
                     let toggleValue =   request.subject === 'toggleReform'? request.toggleReform : 
                                         request.subject === 'toggleState'? request.toggleState : 
-                                        request.subject === 'toggleCode'? request.toggleCode :
+                                        request.subject === 'toggleReviews'? request.toggleReviews :
                                         request.subject === 'toggleRelevance'? request.toggleRelevance :
                                         request.subject === 'toggleToxicity'? request.toggleToxicity : null;
                     if(toggleValue != null){
