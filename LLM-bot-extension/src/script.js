@@ -452,12 +452,15 @@ async function addCodeToggle(){
         }    
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function() {
+        toggle.addEventListener('change', function(e) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleCode',
                 toggleCode: toggle.checked
             });
+            if (e.target.checked) {
+                alert("This option can significantly slow down the response generation if there are too many files.");
+            }
         });
     }
 }
