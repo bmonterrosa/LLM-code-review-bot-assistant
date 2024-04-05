@@ -791,13 +791,6 @@ async function getPullRequestComments() {
     }
 }
 
-
-// pour un review sans review.in_reply_to_id :
-//  - code en revue : review.diff_hunk
-//  - commentaire : review.body
-
-// si review contient in_reply_to_id , c'est un commentaire
-
 // Get pull request reviews 
 async function getPullRequestReviews() {
     await loadGitHubToken()
