@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, GPTNeoForCausalLM, GPT2Tokenizer
 from torch import cuda
-from accelerate import init_empty_weights, load_checkpoint_and_dispatch
+from accelerate import disk_offload
+from huggingface_hub import snapshot_download
 
 from uuid import uuid4
 from pydantic import BaseModel
@@ -14,6 +15,7 @@ import time
 import logging
 import os.path
 import torch
+import subprocess
 
 hugging_face_token = os.getenv('HUGGING_FACE_TOKEN')
 
@@ -22,9 +24,7 @@ device = f'cuda:{cuda.current_device()}' if cuda.is_available() else 'cpu'
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-# tokenizer = AutoTokenizer.from_pretrained(model_id)
-# model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="auto")
-# test
+
 tokenizer = ""
 model = ""
 model_loaded=""
@@ -32,7 +32,6 @@ model_loaded=""
 save_dir = "/models/"
 
 model_id = "google/gemma-2b-it"
-offload_folder="/"
 auto_model=AutoModelForCausalLM
 auto_tokenizer=AutoTokenizer
 auto_config=AutoConfig
@@ -43,7 +42,6 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    # allow_origins=["https://github.com"],
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
@@ -67,27 +65,31 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
     global tokenizer
     if model_loaded != model_id :
         model_loaded = model_id
-        if (os.path.exists(save_dir + model_id)):
-            logger.info("Loading model and tokenizer from local files")
-            model = auto_model.from_pretrained(save_dir + model_id, torch_dtype=torch.bfloat16, device_map='auto',
-                                            token=hugging_face_token)
-            logger.info("Model loaded.")
-            tokenizer = auto_tokenizer.from_pretrained(save_dir + model_id, token=hugging_face_token)
-            logger.info("Tokenizer loaded.")
-            logger.info("Loading from local files complete.")
-        else:
-            logger.info("Model and tokenizer not found locally. Downloading...")
-            model = auto_model.from_pretrained(model_id, torch_dtype=torch.bfloat16, device_map='auto', token=hugging_face_token)
-            tokenizer = auto_tokenizer.from_pretrained(model_id, token=hugging_face_token)
-            logger.info("Download complete. Saving models to volume " + save_dir + model_id)
-            model.save_pretrained(save_dir + model_id)
-            tokenizer.save_pretrained(save_dir + model_id)
-            logger.info("Successfully saved model and tokenizer to volume.")
+
+        if (os.path.exists(save_dir + model_id) == False):
+            logger.info("Model and tokenizer not found locally. Downloading and saving model and tokenizer " + 
+                        "to local files...")
+            allowed_patterns = ["*.json", "*.safetensors", "*.model"]
+            snapshot_download(repo_id=model_id, local_dir=save_dir+model_id, local_dir_use_symlinks=False, 
+                              etag_timeout=60, resume_download=True, token=hugging_face_token, 
+                              allow_patterns=allowed_patterns)
+            logger.info("The model and tokenizer have been successfully downloaded and saved to folder " + 
+                        save_dir + model_id + " .")
+
+        logger.info("Loading model and tokenizer from local files...")
+        model = auto_model.from_pretrained(save_dir + model_id, torch_dtype=torch.bfloat16, device_map='auto',
+                                        token=hugging_face_token)
+        logger.info("Model loaded.")
+        tokenizer = auto_tokenizer.from_pretrained(save_dir + model_id, token=hugging_face_token)
+        logger.info("Tokenizer loaded.")
+        logger.info("Loading from local files complete.")
+            
     else :
-        logger.info("This model is already loaded.")
+        logger.info("The " + model_id + " model is already loaded.")
 
 
-get_model_and_tokenizer(model_id, auto_model, auto_tokenizer)
+# This line loads a default LLM on server startup
+# get_model_and_tokenizer(model_id, auto_model, auto_tokenizer)
 
 
 @app.get("/")
@@ -179,24 +181,7 @@ def test_generate():
     print('--- %s secondes ---' % (time.time() - start_time))
     return {"result": tokenizer.decode(output)}
 
-
-@app.get("/testsavebasic")
-def test_save():
-    test_file = open(save_dir + 'testfile.txt', 'w')
-    test_file.write('Hello world')
-    logger.info(str(os.path.abspath(test_file.name)))
-    test_file.close()
-
-
-@app.get("/testreadbasic")
-def test_save():
-    test_file = open(save_dir + 'testfile.txt', 'r')
-    logger.info("The file reads : " + test_file.read())
-    logger.info(os.path.abspath(test_file.name))
-    test_file.close()
-
-
-@app.get("/testsavefinal")
+@app.get("/testsave")
 def test_save():
 
     start_time = time.time()
@@ -254,3 +239,30 @@ def message_generate(request: PromptMessage):
 
     print(f"--- {(time.time() - start_time)} seconds ---")
     return {"result": generated_text}
+
+@app.get("/testsavebig")
+def test_save():
+
+    model_id = "google/gemma-7b-it"
+
+    start_time = time.time()
+
+    get_model_and_tokenizer(model_id, auto_model, auto_tokenizer)
+
+    logger.info('--- %s secondes ---' % (time.time() - start_time))
+
+    start_time = time.time()
+    user = "Write me a poem about Machine Learning."
+    prompt = user.strip()
+    inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=True).to(device)
+
+    output = model.generate(
+        **inputs,
+        max_new_tokens=200,
+        eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
+    )
+    output = output[0].to(device)
+
+    logger.info(tokenizer.decode(output))
+    logger.info('--- %s secondes ---' % (time.time() - start_time))
+    return {"result": tokenizer.decode(output)}
