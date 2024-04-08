@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     addReformToggle();
     addStatusToggle();
 
+    addReviewsToggle()
     addCodeToggle()
     addRelevanceToggle()
     addToxicToggle()
@@ -451,11 +452,58 @@ async function addCodeToggle(){
         }    
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function() {
+        toggle.addEventListener('change', function(e) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleCode',
                 toggleCode: toggle.checked
+            });
+            if (e.target.checked) {
+                alert("This option can significantly slow down the response generation if there are too many files.");
+            }
+        });
+    }
+}
+
+// Add reviews toggle
+async function addReviewsToggle(){
+    let lswitch = document.getElementById('reviewsSwitch');
+    let currrentState = "";
+    let toggle = document.createElement("input");
+
+    try {
+        currrentState = await getToggleState('toggleReviews');
+        if (!currrentState){
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleReviews',
+                toggleReform: toggle.checked
+            });
+            currrentState = await getToggleState('toggleReviews');
+        }
+    } catch (error) {
+        console.log("Error:",message);
+    }
+
+    toggle.type = "checkbox";
+    toggle.id = "toggleReviews";
+    
+    let slider = document.createElement("span");
+    slider.classList = "slider round";
+
+    if (lswitch) {
+        if (currrentState === "checked") {
+            toggle.checked = true;
+        } else {
+            toggle.checked = false;
+        }    
+        lswitch.appendChild(toggle);
+        lswitch.appendChild(slider);
+        toggle.addEventListener('change', function() {
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleReviews',
+                toggleReviews: toggle.checked
             });
         });
     }
@@ -762,46 +810,65 @@ function loadGitHubToken() {
     });
 }
 
-
-
-
 // Get pull request comments 
 async function getPullRequestComments() {
     await loadGitHubToken()
     var headers = {
         'Authorization': `token ${token}`,
     }
-    if(token){
+    if (token) {
         try {
             var urlInfo = getInfoFromURL();
-            const prUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
-            const reviewsUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/comments`;
-            const prResponse = await fetch(prUrl, { headers: headers });
-            if (!prResponse.ok) {
-                throw new Error(`Error: ${prResponse.status}`);
+            const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
+            const response = await fetch(url, { headers: headers });
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status}`);
             }
-            const reviewsResponse = await fetch(reviewsUrl, { headers: headers });
-            if (!reviewsResponse.ok) {
-                throw new Error(`Error: ${reviewsResponse.status}`);
-            }
-            const prData = await prResponse.json(); 
-            const prComments = prData.map(async prComment => {
-                if (prComment.user.login != "github-actions[bot]") {
-                    return prComment.body;
+            const data = await response.json(); 
+            const comments = data.map(async comment => {
+                if (comment.user.login != "github-actions[bot]") {
+                    return comment.body;
                 }
             });
-            const reviewsData= await reviewsResponse.json(); 
-            const reviewsComments = reviewsData.map(async reviewsComment => {
-                return reviewsComment.body;
+            return Promise.all(comments);
+        } catch (error) {
+            console.log(error);
+        }
+    } else {
+        alert("PR-Comments : No Personal access token detected!")
+    }
+}
+
+// Get pull request reviews 
+async function getPullRequestReviews() {
+    await loadGitHubToken()
+    var headers = {
+        'Authorization': `token ${token}`,
+    }
+    if (token) {
+        try {
+            var urlInfo = getInfoFromURL();
+            const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/comments`;
+            const response = await fetch(url, { headers: headers });
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status}`);
+            }
+            const data = await response.json(); 
+            const reviews = data.map(async review => {
+                if (!review.in_reply_to_id) {
+                    return `code en revue : ${review.diff_hunk}\ncommentaire : ${review.body}`;
+                }
             });
-            return Promise.all(prComments.concat(reviewsComments));
+            return Promise.all(reviews);
         } catch (error) {
             console.log(error);
         }
     }else{
-        alert("PR-Comments:No Personal access token detected!")
+        alert("PR-Reviews : No Personal access token detected!")
     }
 }
+
+
 
 // Extract info from URL to get all necessary data
 function getInfoFromURL() {
@@ -828,7 +895,7 @@ async function getPullRequestFiles() {
     var headers = {
         'Authorization': `token ${token}`,
     }
-    if(token){
+    if (token) {
         try {
             var urlInfo = getInfoFromURL();
             const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/files`;
@@ -840,8 +907,8 @@ async function getPullRequestFiles() {
             return files;
         } catch (error) {
         }
-    }else{
-        alert("PR-FILES:No Personal access token detected!")
+    } else {
+        alert("PR-FILES : No Personal access token detected!")
     }
 }
 
@@ -849,8 +916,18 @@ async function getPullRequestFiles() {
 function getAllPullRequestComments(){
     return getPullRequestComments().then(comments => {
         if (comments) {
-            console.log("getAllPullRequestComments:" +comments);
+            console.log("getAllPullRequestComments : " + comments);
             return comments;
+        }
+        return [];
+    });
+}
+
+// Get clean comments
+function getAllPullRequestReviews(){
+    return getPullRequestReviews().then(reviews => {
+        if (reviews) {
+            return reviews;
         }
         return [];
     });
@@ -866,9 +943,9 @@ async function getAllFileContent() {
     }
     let filesWithPatches = files.map(file => {
         if (file.patch) {
-            return `filename: ${file.filename}, patch: ${file.patch}`;
+            return `filename: ${file.filename}\npatch: ${file.patch}`;
         } else {
-            return `filename: ${file.filename}, patch: No changes or binary file`;
+            return `filename: ${file.filename}\npatch: No changes or binary file`;
         }
     });
     console.log("Modified files with content:", filesWithPatches);
@@ -881,39 +958,44 @@ async function getAllFileContent() {
 
 async function createPrompts() {
     var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
-
     // Start timer
     let startTime = performance.now();
-
     let comments = await getAllPullRequestComments();
     console.log("Comments before if:" + comments);
     if (comments) {
-        basePrompt += " Here are the previous comments made on a Pull request: ";
+        basePrompt += "Here are the previous comments made on a Pull request : \n";
         comments.forEach(comment => {
-            basePrompt += comment ;
+            basePrompt += comment + "\n";
         });
     }
-
+    // Include files changed
     let codeState = await getToggleState('toggleCode');
     if (codeState === 'checked') {
-    basePrompt += "Here are the file names and code affected by this pull request: \n";
-    let fileContents = await getAllFileContent();
-
-    // Add the filename and patch text to the prompt
-    if (fileContents.length > 0) {
-        fileContents.forEach(fileContent => {
-            basePrompt += fileContent + "\n";
-        });
-    } else {
-        basePrompt += "No file changes are available for this pull request.\n";
+        basePrompt += "Here are the file names and code affected by this pull request : \n";
+        let fileContents = await getAllFileContent();
+        if (fileContents.length > 0) {
+            fileContents.forEach(fileContent => {
+                basePrompt += fileContent + "\n";
+            });
+        } else {
+            basePrompt += "No file changes are available for this pull request.\n";
+        }
+        basePrompt += "End of code section.\n";
     }
-    basePrompt += "End of code section.\n";
-}
-
-
+    // Inlcude reviews
+    let reviewsState = await getToggleState('toggleReviews');
+    if (reviewsState === 'checked') {
+        let reviews = await getAllPullRequestReviews();
+        if (reviews) {
+            basePrompt += "Here are the reviews made on the pull request : \n";
+            reviews.forEach(review => {
+                basePrompt += review + "\n";
+            });
+        }
+        basePrompt += "End of reviews.\n";
+    }
     let pendingComment = getCurrentComment();
-    basePrompt += "Here is the pending reply: " + pendingComment;
-
+    basePrompt += "Here is the pending reply : " + pendingComment + "\n";
     let promptsResponsesArray = [];
     if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
         console.log("Entering Prompt making");
@@ -938,20 +1020,21 @@ async function createPrompts() {
             const responseData = await response.json();
             return responseData.result.split(additionalPrompt).pop().trim();
         };
-
+        // Relevance
         if (relevanceState === 'checked') {
-            let relevanceResponse = await getResponse("Now as the helper bot, can you tell If the pending reply relevant? Keep your answer within 2 sentences.");
+            let relevanceResponse = await getResponse("Now as the helper bot, can you tell If the pending reply relevant? Keep your answer within 2 sentences.\n");
             promptsResponsesArray.push("Relevance: " + relevanceResponse);
         }
+        // Toxicity
         if (toxicState === 'checked') {
-            let toxicResponse = await getResponse("Now as the helper bot,is the pending reply toxic? Keep your answer within 2 sentences.");
+            let toxicResponse = await getResponse("Now as the helper bot,is the pending reply toxic? Keep your answer within 2 sentences.\n");
             promptsResponsesArray.push("Toxicity: " + toxicResponse);
         }
+        // Reformulation
         if (reformState === 'checked') {
-            let reformResponse = await getResponse("Now as the helper bot,Reformulate the pending reply in a professional way within 2 sentences.");
+            let reformResponse = await getResponse("Now as the helper bot,Reformulate the pending reply in a professional way within 2 sentences.\n");
             promptsResponsesArray.push("Reformulation: " + reformResponse);
         }
-
         // Check if no prompts were toggled and add a default reply
         if (promptsResponsesArray.length === 0) {
             promptsResponsesArray.push("Please toggle a prompt setting.");
@@ -961,7 +1044,7 @@ async function createPrompts() {
     let endTime = performance.now();
     let timeTaken = endTime - startTime;
     promptsResponsesArray.push(`Time taken: ${timeTaken.toFixed(2)} ms`);
-    }else {
+    } else {
         console.log("No comment in text area");
         promptsResponsesArray.push("Please write a comment in the text area.");
     }
