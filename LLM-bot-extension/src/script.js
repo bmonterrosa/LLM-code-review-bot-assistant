@@ -251,25 +251,49 @@ function createModal() {
         const modal = document.createElement('section');
         modal.classList.add('modal');
         modal.classList.add('hidden');
-        modal.setAttribute("id","request-modal");
+        modal.setAttribute("id", "request-modal");
+
         const modalContent = document.createElement('div');
         modalContent.classList.add('flex');
         modalContent.classList.add('request-content');
-        modalContent.innerHTML = 'This approach combines HTML for structure, CSS for styling, and JavaScript for functionality, providing a complete solution for creating a modal. The modal can contain any HTML elements, such as divs, headings, paragraphs, images, etc., as mentioned in the sources 23. The modal is initially hidden using the .hidden class, and JavaScript is used to remove this class when the modal should be displayed, and to add it back when the modal should be hidden';
+
+        // Adding title and textarea for each element
+        const elements = ['Files', 'Reviews', 'General Prompt', 'Toxicity', 'Pertinence', 'Reformulation'];
+        elements.forEach(element => {
+            const title = document.createElement('h3');
+            title.textContent = element;
+            modalContent.appendChild(title);
+
+            const textarea = document.createElement('textarea');
+            textarea.style.width = '100%';
+            textarea.style.resize = 'both'; // Allow both horizontal and vertical resizing
+            textarea.style.marginBottom = '10px'; // Add margin between each textarea
+            textarea.style.padding = '8px'; // Add padding to textarea
+            textarea.style.borderRadius = '4px'; // Add border radius
+            textarea.style.border = '1px solid #ccc'; // Add border
+            modalContent.appendChild(textarea);
+        });
+
         modal.appendChild(modalContent);
+
         const overlay = document.createElement('div');
         overlay.classList.add('overlay');
         overlay.classList.add('hidden');
-        overlay.setAttribute("id","request-overlay");
+        overlay.setAttribute("id", "request-overlay");
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.4)'; // Add background color
+
         commentForm.parentElement.appendChild(modal);
         commentForm.parentElement.appendChild(overlay);
     }
 }
 
+
 function openModal() {
     let modal = document.getElementById("request-modal");
     let overlay = document.getElementById("request-overlay");
     let modalContent = document.getElementById("request-content");
+
+    //TODO: Load the prompts into each textarea to allow the user to modify them before sending.
     
     modal.classList.remove("hidden");
     overlay.classList.remove("hidden");
