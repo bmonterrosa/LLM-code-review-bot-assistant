@@ -69,16 +69,6 @@ button{
     cursor: pointer;
 }
 
-.tabcontent{
-    margin: 5px;
-}
-
-.tablinks{
-    width: 40%;
-    margin: 5px;
-    flex:1;
-}
-
 .tab {
     display: flex;
 }

@@ -16,28 +16,12 @@
         This extension only works on GitHub.
     </div>
     <div id="content" style="display: none;">
-        <div class="tab">
-            <button class="tablinks" id="viewTab">View</button>
-            <button class="tablinks" id="settingsTab">Settings</button>
-        </div>
-        <div id="View" class="tabcontent">
+        <div style="display: flex;">
             <h1>Pull Request bot</h1>
-            <div class="setting-item">
-                <span>
-                    Enable Extension
-                </span>
-                <label id="enableSwitch" class="switch">
-                </label>
-            </div>
-            <div id="Full-response">
-                <label style="margin: 2px;">LLM Response</label>
-                <textarea readonly id="full-llm-response"
-                    style="height:auto; width: 100%; resize:vertical; background-color: #192029; color:white;">No response to display</textarea>
-            </div>
+            <label id="enableSwitch" class="switch" style="margin-top: 5px; margin-right: 15px;"></label>
         </div>
-        <div id="Settings" class="tabcontent">
-            </br>
-
+        <div id="Settings">
+            <h3>Settings</h3>
             <div style="margin: 5px;">
                 <div class="setting-item" style="margin: 2px;">
                     <span>
