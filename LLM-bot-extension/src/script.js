@@ -1138,8 +1138,8 @@ async function createPrompts() {
 
             let relevancePrompt = await createRelevancePrompt();
             console.log("Relevance Prompt: " + relevancePrompt);
-            if (modelID == googleGemma2b) { relevanceResponse = await getGemmaResponse(relevancePrompt); } else
-            if (modelID == stabilityAi2b) { relevanceResponse = await getStableResponse(relevancePrompt); }
+            if (modelID == googleGemma2b) { relevanceResponse = await getGemmaResponse(relevancePrompt); }
+            else if (modelID == stabilityAi2b) { relevanceResponse = await getStableResponse(relevancePrompt); }
             else { relevanceResponse = await getDefaultLlmResponse(relevancePrompt); }
             // Function to get the response for each prompt
             const getResponse = async (additionalPrompt) => {
@@ -1158,9 +1158,7 @@ async function createPrompts() {
                 const responseData = await response.json();
                 return responseData.result.split(additionalPrompt).pop().trim();
             };
-
-            //let relevanceResponse = await getResponse("Now as the helper bot, can you tell If the pending reply relevant? Keep your answer within 2 sentences.\n");
-            //promptsResponsesArray.push("Relevance: " + relevanceResponse);
+            promptsResponsesArray.push("Relevance: " + relevanceResponse);
         }
         // Toxicity
         if (toxicState === 'checked') {
@@ -1171,12 +1169,10 @@ async function createPrompts() {
 
             let toxicPrompt = await createToxicityPrompt();
             console.log("Toxic Prompt:" + toxicPrompt);
-            if (modelID == googleGemma2b) { toxicResponse = await getGemmaResponse(toxicPrompt); } else
-            if (modelID == stabilityAi2b) { toxicResponse = await getStableResponse(toxicPrompt); }
+            if (modelID == googleGemma2b) { toxicResponse = await getGemmaResponse(toxicPrompt); } 
+            else if (modelID == stabilityAi2b) { toxicResponse = await getStableResponse(toxicPrompt); }
             else { toxicResponse = await getDefaultLlmResponse(toxicPrompt); }
-
-            //let toxicResponse = await getResponse("Now as the helper bot,is the pending reply toxic? Keep your answer within 2 sentences.\n");
-            //promptsResponsesArray.push("Toxicity: " + toxicResponse);
+            promptsResponsesArray.push("Toxicity: " + toxicResponse);
         }
         // Reformulation
         if (reformState === 'checked') {
@@ -1187,15 +1183,10 @@ async function createPrompts() {
 
             let reformPrompt = await createReformPrompt();
             console.log("reform Prompt:" + reformPrompt);
-            if (modelID == googleGemma2b) { reformResponse = await getGemmaResponse(reformPrompt); } else
-            if (modelID == stabilityAi2b) { reformResponse = await getStableResponse(reformPrompt); }
+            if (modelID == googleGemma2b) { reformResponse = await getGemmaResponse(reformPrompt); } 
+            else if (modelID == stabilityAi2b) { reformResponse = await getStableResponse(reformPrompt); }
             else { reformResponse = await getDefaultLlmResponse(reformPrompt); }
             promptsResponsesArray.push("Reformulation: " + reformResponse);
-        
-            console.log("promptsResponses Array: " + promptsResponsesArray);
-            
-            //let reformResponse = await getResponse("Now as the helper bot,Reformulate the pending reply in a professional way within 2 sentences.\n");
-            //promptsResponsesArray.push("Reformulation: " + reformResponse);
         }
         // Check if no prompts were toggled and add a default reply
         if (promptsResponsesArray.length === 0) {
@@ -1214,7 +1205,8 @@ async function createPrompts() {
 }
 
 
-// ----------  PROMPTS GENERATION ---------- 
+// ----------  PROMPTS GENERATION ----------
+
 //Returns the toxicity prompt in full
 async function generateBasePrompt() {
     var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
@@ -1278,6 +1270,7 @@ async function createReformPrompt() {
 }
 
 // ----------  GET LLM RESPONSE + FORMATTING ---------- 
+
 //Function Used To call Gemma
 async function getGemmaResponse(prompt) {
     const response = await fetch(url + "generate-response-Gemma", {
@@ -1329,6 +1322,7 @@ async function getDefaultLlmResponse(prompt) {
 
 
 // ----------  API FUNCTIONS ---------- 
+
 // URL setter
 function setURL(input) {
     url = input
