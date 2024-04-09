@@ -171,6 +171,7 @@ function checkIcon() {
     let icon = document.getElementById("LLM_Icon");
     if (newCommentField && !icon) {
         addIconOverCommentBox();
+        createModal();
     }
     if (icon) {
         attachIconEvent(icon);
@@ -244,6 +245,41 @@ async function getResponse() {
     });
 }
 
+function createModal() {
+    let commentForm = document.getElementById("new_comment_form");
+    if (commentForm) {
+        const modal = document.createElement('section');
+        modal.classList.add('modal');
+        modal.classList.add('hidden');
+        modal.setAttribute("id","request-modal");
+        const modalContent = document.createElement('div');
+        modalContent.classList.add('flex');
+        modalContent.classList.add('request-content');
+
+
+        
+
+
+        
+        const overlay = document.createElement('div');
+        overlay.classList.add('overlay');
+        overlay.classList.add('hidden');
+        overlay.setAttribute("id","request-overlay");
+        commentForm.parentElement.appendChild(modal);
+        commentForm.parentElement.appendChild(overlay);
+    }
+}
+
+function openModal(promptsResponses) {
+    let modal = document.getElementById("request-modal");
+    let overlay = document.getElementById("request-overlay");
+    let modalContent = document.getElementById("request-content");
+    modalContent.innerHTML = promptsResponses.join('\n');
+    modal.appendChild(modalContent);
+    modal.classList.remove("hidden");
+    overlay.classList.remove("hidden");
+}
+
 // Attach onclick event on LLM Icon
 function attachIconEvent(icon) {
     icon.onmouseover = function () {
@@ -277,6 +313,10 @@ function attachIconEvent(icon) {
             //Call new function HERE but keep old commented
             try {
                 let promptsResponses = await createPrompts();
+
+                openModal(promptsResponses);
+
+
                 console.log('promptsResponses bellow');
                 console.log(promptsResponses);
                 clearInterval(intervalId); // Stop the buffering effect
@@ -289,7 +329,7 @@ function attachIconEvent(icon) {
                     subject: 'llmResponse',
                     response: promptsResponses
                 });
-            } catch (error) {
+                } catch (error) {
                 console.error(error);
                 clearInterval(intervalId);
                 resBox.value = "Error: Could not get a response.";
