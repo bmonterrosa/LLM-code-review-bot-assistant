@@ -171,7 +171,7 @@ function checkIcon() {
     let icon = document.getElementById("LLM_Icon");
     if (newCommentField && !icon) {
         addIconOverCommentBox();
-        createModal();
+        createRequestSectionStructure();
     }
     if (icon) {
         attachIconEvent(icon);
@@ -245,7 +245,7 @@ async function getResponse() {
     });
 }
 
-function createModal() {
+function createRequestSectionStructure() {
     let commentForm = document.getElementById("new_comment_form");
     if (commentForm) {
         const modal = document.createElement('section');
@@ -258,7 +258,7 @@ function createModal() {
         modalContent.classList.add('request-content');
 
         // Adding title and textarea for each element
-        const elements = ['Files', 'Reviews', 'General Prompt', 'Toxicity', 'Pertinence', 'Reformulation'];
+        const elements = ['Files', 'Reviews', 'General Prompt', 'Toxicity', 'relevance', 'Reformulation'];
         elements.forEach(element => {
             const title = document.createElement('h3');
             title.textContent = element;
@@ -276,6 +276,20 @@ function createModal() {
             modalContent.appendChild(textarea);
         });
 
+        const sendButton = document.createElement('send_to_LLM_button');
+        sendButton.textContent = 'Send to LLM';
+        sendButton.classList.add('send-button');
+        sendButton.style.backgroundColor = 'green'; // Set button background color
+        sendButton.style.color = '#fff'; // Set button text color
+        sendButton.style.padding = '10px 20px'; // Set button padding
+        sendButton.style.border = 'none'; // Remove button border
+        sendButton.style.borderRadius = '4px'; // Add border radius
+        sendButton.style.marginTop = '20px'; // Add margin top
+        sendButton.style.marginLeft = 'auto'; // Align button to the center
+        sendButton.style.marginRight = 'auto'; // Align button to the center
+        sendButton.style.display = 'inline-block'; // Make the button an inline-block element
+        modalContent.appendChild(sendButton);
+
         modal.appendChild(modalContent);
 
         const overlay = document.createElement('div');
@@ -286,19 +300,113 @@ function createModal() {
 
         commentForm.parentElement.appendChild(modal);
         commentForm.parentElement.appendChild(overlay);
+        modal.setAttribute("style", "display: none;");
     }
 }
 
 
-function openModal() {
+async function fillRequestSection() {
     let modal = document.getElementById("request-modal");
     let overlay = document.getElementById("request-overlay");
     let modalContent = document.getElementById("request-content");
 
-    //TODO: Load the prompts into each textarea to allow the user to modify them before sending.
-    
-    modal.classList.remove("hidden");
-    overlay.classList.remove("hidden");
+    // Load the prompts into each textarea to allow the user to modify them before sending
+
+    // Files
+    const filesTextarea = document.getElementById('files_prompt_area');
+    if (filesTextarea) {
+        const codeState = await getToggleState('toggleCode');
+        if (codeState === 'checked') {
+            filesTextarea.setAttribute("style", "display: block; width: 100%;");
+            const filesTitle = filesTextarea.previousElementSibling;
+            if (filesTitle) {
+                filesTitle.setAttribute("style", "display: block; width: 100%;");; // Show the title
+            }
+        } else {
+            filesTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
+            const filesTitle = filesTextarea.previousElementSibling;
+            if (filesTitle) {
+                filesTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
+            }
+        }
+    }
+
+    // Reviews
+    const reviewsTextarea = document.getElementById('reviews_prompt_area');
+    if (reviewsTextarea) {
+        const reviewState = await getToggleState('toggleReviews');
+        if (reviewState === 'checked') {
+            reviewsTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            const reviewsTitle = reviewsTextarea.previousElementSibling;
+            if (reviewsTitle) {
+                reviewsTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
+            }
+        } else {
+            reviewsTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
+            const reviewsTitle = reviewsTextarea.previousElementSibling;
+            if (reviewsTitle) {
+                reviewsTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
+            }
+        }
+    }
+
+    // Toxicity
+    const toxicityTextarea = document.getElementById('toxicity_prompt_area');
+    if (toxicityTextarea) {
+        const toxicState = await getToggleState('toggleToxicity');
+        if (toxicState === 'checked') {
+            toxicityTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            const toxicityTitle = toxicityTextarea.previousElementSibling;
+            if (toxicityTitle) {
+                toxicityTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
+            }
+        } else {
+            toxicityTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
+            const toxicityTitle = toxicityTextarea.previousElementSibling;
+            if (toxicityTitle) {
+                toxicityTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
+            }
+        }
+    }
+
+
+    // relevance
+    const relevanceTextarea = document.getElementById('relevance_prompt_area');
+    if (relevanceTextarea) {
+        const toxicState = await getToggleState('toggleRelevance');
+        if (toxicState === 'checked') {
+            relevanceTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            const relevanceTitle = relevanceTextarea.previousElementSibling;
+            if (relevanceTitle) {
+                relevanceTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
+            }
+        } else {
+            relevanceTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
+            const relevanceTitle = relevanceTextarea.previousElementSibling;
+            if (relevanceTitle) {
+                relevanceTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
+            }
+        }
+    }
+
+    // Reformulation
+    const reformTextarea = document.getElementById('reformulation_prompt_area');
+    if (reformTextarea) {
+        const reformState = await getToggleState('toggleReform');
+        if (reformState === 'checked') {
+            reformTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            const reformTitle = reformTextarea.previousElementSibling;
+            if (reformTitle) {
+                reformTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
+            }
+        } else {
+            reformTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
+            const reformTitle = reformTextarea.previousElementSibling;
+            if (reformTitle) {
+                reformTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
+            }
+        }
+    }
 }
 
 // Attach onclick event on LLM Icon
@@ -311,7 +419,11 @@ function attachIconEvent(icon) {
     };
     icon.onclick = async function (event) {
 
-        openModal();
+        const modal = document.getElementById('request-modal');
+        modal.setAttribute("style", "display: block;");
+        fillRequestSection();
+
+
 
         chrome.runtime.sendMessage({
             from: 'popup',
@@ -350,7 +462,7 @@ function attachIconEvent(icon) {
                     subject: 'llmResponse',
                     response: promptsResponses
                 });
-                } catch (error) {
+            } catch (error) {
                 console.error(error);
                 clearInterval(intervalId);
                 resBox.value = "Error: Could not get a response.";
@@ -524,7 +636,7 @@ async function addCodeToggle() {
         }
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function(e) {
+        toggle.addEventListener('change', function (e) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleCode',
@@ -538,14 +650,14 @@ async function addCodeToggle() {
 }
 
 // Add reviews toggle
-async function addReviewsToggle(){
+async function addReviewsToggle() {
     let lswitch = document.getElementById('reviewsSwitch');
     let currrentState = "";
     let toggle = document.createElement("input");
 
     try {
         currrentState = await getToggleState('toggleReviews');
-        if (!currrentState){
+        if (!currrentState) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleReviews',
@@ -554,12 +666,12 @@ async function addReviewsToggle(){
             currrentState = await getToggleState('toggleReviews');
         }
     } catch (error) {
-        console.log("Error:",message);
+        console.log("Error:", message);
     }
 
     toggle.type = "checkbox";
     toggle.id = "toggleReviews";
-    
+
     let slider = document.createElement("span");
     slider.classList = "slider round";
 
@@ -568,10 +680,10 @@ async function addReviewsToggle(){
             toggle.checked = true;
         } else {
             toggle.checked = false;
-        }    
+        }
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function() {
+        toggle.addEventListener('change', function () {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleReviews',
@@ -693,7 +805,7 @@ async function addEventLoadLLM() {
             //const response = await fetch(`http://127.0.0.1/premierdem`)
             const data = await response.json()
             alert('LLM loaded sucessfully');
-            chrome.storage.sync.set({ "selectedLlmId": selectedValue }, function() {
+            chrome.storage.sync.set({ "selectedLlmId": selectedValue }, function () {
                 console.log('The LLM ID has been saved.');
             });
         } catch (error) {
@@ -1010,7 +1122,7 @@ async function getPullRequestComments() {
             if (!response.ok) {
                 throw new Error(`Error: ${response.status}`);
             }
-            const data = await response.json(); 
+            const data = await response.json();
             const comments = data.map(async comment => {
                 if (comment.user.login != "github-actions[bot]") {
                     return comment.body;
@@ -1039,7 +1151,7 @@ async function getPullRequestReviews() {
             if (!response.ok) {
                 throw new Error(`Error: ${response.status}`);
             }
-            const data = await response.json(); 
+            const data = await response.json();
             const reviews = data.map(async review => {
                 if (!review.in_reply_to_id) {
                     return `code en revue : ${review.diff_hunk}\ncommentaire : ${review.body}`;
@@ -1049,7 +1161,7 @@ async function getPullRequestReviews() {
         } catch (error) {
             console.log(error);
         }
-    }else{
+    } else {
         alert("PR-Reviews : No Personal access token detected!")
     }
 }
@@ -1110,7 +1222,7 @@ function getAllPullRequestComments() {
 }
 
 // Get clean comments
-function getAllPullRequestReviews(){
+function getAllPullRequestReviews() {
     return getPullRequestReviews().then(reviews => {
         if (reviews) {
             return reviews;
@@ -1189,7 +1301,7 @@ async function createPrompts() {
         let reformState = await getToggleState("toggleReform");
         let modelID = chrome.storage.sync.get("selectedLlmId");
         console.log("Model_ID used= " + modelID);
-   
+
         // Relevance
         if (relevanceState === 'checked') {
             let relevanceResponse;
@@ -1230,7 +1342,7 @@ async function createPrompts() {
 
             let toxicPrompt = await createToxicityPrompt();
             console.log("Toxic Prompt:" + toxicPrompt);
-            if (modelID == googleGemma2b) { toxicResponse = await getGemmaResponse(toxicPrompt); } 
+            if (modelID == googleGemma2b) { toxicResponse = await getGemmaResponse(toxicPrompt); }
             else if (modelID == stabilityAi2b) { toxicResponse = await getStableResponse(toxicPrompt); }
             else { toxicResponse = await getDefaultLlmResponse(toxicPrompt); }
             promptsResponsesArray.push("Toxicity: " + toxicResponse);
@@ -1244,7 +1356,7 @@ async function createPrompts() {
 
             let reformPrompt = await createReformPrompt();
             console.log("reform Prompt:" + reformPrompt);
-            if (modelID == googleGemma2b) { reformResponse = await getGemmaResponse(reformPrompt); } 
+            if (modelID == googleGemma2b) { reformResponse = await getGemmaResponse(reformPrompt); }
             else if (modelID == stabilityAi2b) { reformResponse = await getStableResponse(reformPrompt); }
             else { reformResponse = await getDefaultLlmResponse(reformPrompt); }
             promptsResponsesArray.push("Reformulation: " + reformResponse);
