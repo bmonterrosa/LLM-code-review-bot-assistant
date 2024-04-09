@@ -238,7 +238,6 @@ function createResponseSectionStructure() {
             textarea.style.borderRadius = '4px'; // Add border radius
             textarea.style.border = '1px solid #ccc'; // Add border
             modalContent.appendChild(textarea);
-
             if (element === 'Reformulation') {
                 const copyButton = document.createElement('button');
                 copyButton.id = 'response_copy_button';
@@ -263,6 +262,7 @@ function createResponseSectionStructure() {
                 };
                 modalContent.appendChild(copyButton);
             }
+
         });
 
         modal.appendChild(modalContent);
@@ -333,17 +333,17 @@ async function fillResponseSection() {
             }
             const copyButton = document.getElementById('response_copy_button');
             if (copyButton) {
-                copyButton.setAttribute("style", "display: block; width: 100%;"); // Hide the title
+                copyButton.setAttribute("style", "display: block; width: 100%; margin-bottom: 10px; background-color: blue; color: #fff; border: none; border-radius: 4px; padding: 8px 16px; width: auto; display: inline-block;"); // Hide the title
             }
         } else {
-            reformTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
+            reformTextarea.setAttribute("style", "display: none;"); // Hide the textarea
             const reformTitle = reformTextarea.previousElementSibling;
             if (reformTitle) {
                 reformTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
             }
             const copyButton = document.getElementById('response_copy_button');
             if (copyButton) {
-                copyButton.setAttribute("style", "display: none; width: 100%;"); // Hide the title
+                copyButton.setAttribute("style", "display: none;"); // Hide the title
             }
         }
     }
