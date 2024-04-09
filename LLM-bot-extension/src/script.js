@@ -39,35 +39,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     });
 
-    //Change tabs in extension
-    document.getElementById('viewTab').addEventListener('click', function () {
-        openTab('View');
-    });
-
-    document.getElementById('settingsTab').addEventListener('click', function () {
-        openTab('Settings');
-    });
-
-    var resp = await getResponse();
-    document.getElementById('full-llm-response').height = 'auto';
-    if (resp) {
-        document.getElementById('full-llm-response').display = 'block';
-        document.getElementById('full-llm-response').value = resp;
-    } else {
-        document.getElementById('full-llm-response').display = 'none';
-    }
-
-    openTab('View');
-
-    //Add settings Toggle
+    //Add settings
     addReformToggle();
     addStatusToggle();
-
     addReviewsToggle()
     addCodeToggle()
     addRelevanceToggle()
     addToxicToggle()
-
     initializeLlmDropdown()
     addEventLoadLLM()
     addEventDeleteLLM()
@@ -129,26 +107,10 @@ function observeDOM() {
             }
         });
     });
-
     observer.observe(document.body, {
         childList: true,
         subtree: true
     });
-}
-
-// Change extension content
-function openTab(tabName) {
-    var i, tabcontent, tablinks;
-    tabcontent = document.getElementsByClassName("tabcontent");
-    for (i = 0; i < tabcontent.length; i++) {
-        tabcontent[i].style.display = "none";
-    }
-    tablinks = document.getElementsByClassName("tablinks");
-    for (i = 0; i < tablinks.length; i++) {
-        tablinks[i].classList.remove("active");
-    }
-    document.getElementById(tabName).style.display = "block";
-    document.getElementById(tabName.toLowerCase() + 'Tab').classList.add("active");
 }
 
 // Watch changed when selecting differents tabs in github Single Application Page (SAP)
@@ -670,7 +632,7 @@ async function addStatusToggle() {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleState',
-                toggleReform: toggle.checked
+                toggleState: toggle.checked
             });
             currrentState = await getToggleState('toggleState');
         }
@@ -687,17 +649,24 @@ async function addStatusToggle() {
     if (lswitch) {
         if (currrentState === "checked") {
             toggle.checked = true;
+            document.getElementById('Settings').style.display = "block";
         } else {
             toggle.checked = false;
+            document.getElementById('Settings').style.display = "none";
         }
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function () {
+        toggle.addEventListener('change', function (e) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleState',
                 toggleState: toggle.checked
             });
+            if (e.target.checked) {
+                document.getElementById('Settings').style.display = "block";
+            } else {
+                document.getElementById('Settings').style.display = "none";
+            }
         });
     }
 }
@@ -1393,6 +1362,8 @@ async function createPrompts() {
     }
     let pendingComment = getCurrentComment();
     basePrompt += "Here is the pending reply : " + pendingComment + "\n";
+
+
     let promptsResponsesArray = [];
     if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
         console.log("Entering Prompt making");
