@@ -172,6 +172,7 @@ function checkIcon() {
     if (newCommentField && !icon) {
         addIconOverCommentBox();
         createRequestSectionStructure();
+        createResponseSectionStructure();
     }
     if (icon) {
         attachIconEvent(icon);
@@ -245,57 +246,62 @@ async function getResponse() {
     });
 }
 
-function createRequestSectionStructure() {
+function createResponseSectionStructure() {
     let commentForm = document.getElementById("new_comment_form");
     if (commentForm) {
         const modal = document.createElement('section');
         modal.classList.add('modal');
         modal.classList.add('hidden');
-        modal.setAttribute("id", "request-modal");
+        modal.setAttribute("id", "response-modal");
 
         const modalContent = document.createElement('div');
         modalContent.classList.add('flex');
-        modalContent.classList.add('request-content');
+        modalContent.classList.add('response-content');
 
         // Adding title and textarea for each element
-        const elements = ['Files', 'Reviews', 'General Prompt', 'Toxicity', 'relevance', 'Reformulation'];
+        const elements = ['Toxicity', 'Relevance', 'Reformulation'];
         elements.forEach(element => {
             const title = document.createElement('h3');
             title.textContent = element;
             modalContent.appendChild(title);
 
             const textarea = document.createElement('textarea');
-            const textareaId = element.toLowerCase().replace(/\s+/g, '-') + '_prompt_area'; // Convert element name to lowercase and replace spaces with hyphens
+            const textareaId = element.toLowerCase().replace(/\s+/g, '-') + '_response_area'; // Convert element name to lowercase and replace spaces with hyphens
             textarea.id = textareaId; // Set textarea ID
+            textarea.setAttribute("readonly", true); // Make textarea readonly
             textarea.style.width = '100%';
-            textarea.style.resize = 'both'; // Allow both horizontal and vertical resizing
+            textarea.style.resize = 'none'; // Disable resizing
             textarea.style.marginBottom = '10px'; // Add margin between each textarea
             textarea.style.padding = '8px'; // Add padding to textarea
             textarea.style.borderRadius = '4px'; // Add border radius
             textarea.style.border = '1px solid #ccc'; // Add border
             modalContent.appendChild(textarea);
-        });
 
-        const sendButton = document.createElement('send_to_LLM_button');
-        sendButton.textContent = 'Send to LLM';
-        sendButton.classList.add('send-button');
-        sendButton.style.backgroundColor = 'green'; // Set button background color
-        sendButton.style.color = '#fff'; // Set button text color
-        sendButton.style.padding = '10px 20px'; // Set button padding
-        sendButton.style.border = 'none'; // Remove button border
-        sendButton.style.borderRadius = '4px'; // Add border radius
-        sendButton.style.marginTop = '20px'; // Add margin top
-        sendButton.style.marginLeft = 'auto'; // Align button to the center
-        sendButton.style.marginRight = 'auto'; // Align button to the center
-        sendButton.style.display = 'inline-block'; // Make the button an inline-block element
-        modalContent.appendChild(sendButton);
+            if (element === 'Reformulation') {
+                // Add copy button for Reformulation textarea
+                const copyButton = document.createElement('button');
+                copyButton.textContent = 'Copy';
+                copyButton.classList.add('copy-button');
+                copyButton.style.marginBottom = '10px'; // Add margin below the button
+                copyButton.onclick = async function () {
+                    const textarea = document.getElementById(textareaId);
+                    try {
+                        await navigator.clipboard.writeText(textarea.value);
+                        console.log('Text copied to clipboard');
+                    } catch (error) {
+                        console.error('Failed to copy text: ', error);
+                    }
+                };
+                modalContent.appendChild(copyButton);
+            }
+        });
 
         modal.appendChild(modalContent);
 
         const overlay = document.createElement('div');
         overlay.classList.add('overlay');
         overlay.classList.add('hidden');
-        overlay.setAttribute("id", "request-overlay");
+        overlay.setAttribute("id", "response-overlay");
         overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.4)'; // Add background color
 
         commentForm.parentElement.appendChild(modal);
@@ -304,51 +310,7 @@ function createRequestSectionStructure() {
     }
 }
 
-
 async function fillRequestSection() {
-    let modal = document.getElementById("request-modal");
-    let overlay = document.getElementById("request-overlay");
-    let modalContent = document.getElementById("request-content");
-
-    // Load the prompts into each textarea to allow the user to modify them before sending
-
-    // Files
-    const filesTextarea = document.getElementById('files_prompt_area');
-    if (filesTextarea) {
-        const codeState = await getToggleState('toggleCode');
-        if (codeState === 'checked') {
-            filesTextarea.setAttribute("style", "display: block; width: 100%;");
-            const filesTitle = filesTextarea.previousElementSibling;
-            if (filesTitle) {
-                filesTitle.setAttribute("style", "display: block; width: 100%;");; // Show the title
-            }
-        } else {
-            filesTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
-            const filesTitle = filesTextarea.previousElementSibling;
-            if (filesTitle) {
-                filesTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
-            }
-        }
-    }
-
-    // Reviews
-    const reviewsTextarea = document.getElementById('reviews_prompt_area');
-    if (reviewsTextarea) {
-        const reviewState = await getToggleState('toggleReviews');
-        if (reviewState === 'checked') {
-            reviewsTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
-            const reviewsTitle = reviewsTextarea.previousElementSibling;
-            if (reviewsTitle) {
-                reviewsTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
-            }
-        } else {
-            reviewsTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
-            const reviewsTitle = reviewsTextarea.previousElementSibling;
-            if (reviewsTitle) {
-                reviewsTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
-            }
-        }
-    }
 
     // Toxicity
     const toxicityTextarea = document.getElementById('toxicity_prompt_area');
@@ -409,6 +371,141 @@ async function fillRequestSection() {
     }
 }
 
+
+
+function createRequestSectionStructure() {
+    let commentForm = document.getElementById("new_comment_form");
+    if (commentForm) {
+        const modal = document.createElement('section');
+        modal.classList.add('modal');
+        modal.classList.add('hidden');
+        modal.setAttribute("id", "request-modal");
+
+        const modalContent = document.createElement('div');
+        modalContent.classList.add('flex');
+        modalContent.classList.add('request-content');
+
+        // Adding title and textarea for each element
+        const elements = ['Files', 'Reviews', 'General Prompt', 'Toxicity', 'Relevance', 'Reformulation'];
+        elements.forEach(element => {
+            const title = document.createElement('h3');
+            title.textContent = element;
+            modalContent.appendChild(title);
+
+            const textarea = document.createElement('textarea');
+            const textareaId = element.toLowerCase().replace(/\s+/g, '-') + '_prompt_area'; // Convert element name to lowercase and replace spaces with hyphens
+            textarea.id = textareaId; // Set textarea ID
+            textarea.style.width = '100%';
+            textarea.style.resize = 'both'; // Allow both horizontal and vertical resizing
+            textarea.style.marginBottom = '10px'; // Add margin between each textarea
+            textarea.style.padding = '8px'; // Add padding to textarea
+            textarea.style.borderRadius = '4px'; // Add border radius
+            textarea.style.border = '1px solid #ccc'; // Add border
+            modalContent.appendChild(textarea);
+        });
+
+        const sendButton = document.createElement('button');
+        sendButton.textContent = 'Send to LLM';
+        sendButton.id = 'send_to_LLM_button'; // Set button ID
+        sendButton.classList.add('send-button');
+        sendButton.style.backgroundColor = 'green'; // Set button background color
+        sendButton.style.color = '#fff'; // Set button text color
+        sendButton.style.padding = '10px 20px'; // Set button padding
+        sendButton.style.border = 'none'; // Remove button border
+        sendButton.style.borderRadius = '4px'; // Add border radius
+        sendButton.style.marginTop = '20px'; // Add margin top
+        sendButton.style.marginLeft = 'auto'; // Align button to the center
+        sendButton.style.marginRight = 'auto'; // Align button to the center
+        sendButton.style.display = 'inline-block'; // Make the button an inline-block element
+        sendButton.onclick = function () {
+            const request_modal = document.getElementById('request-modal');
+            request_modal.setAttribute("style", "display: none;");
+
+            //TODO: ARMANDO: Add send request behaviour here
+
+            const response_modal = document.getElementById('response-modal');
+            fillRequestSection();
+            response_modal.setAttribute("style", "display: block;");
+        };
+        modalContent.appendChild(sendButton);
+
+        modal.appendChild(modalContent);
+
+        const overlay = document.createElement('div');
+        overlay.classList.add('overlay');
+        overlay.classList.add('hidden');
+        overlay.setAttribute("id", "request-overlay");
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.4)'; // Add background color
+
+        commentForm.parentElement.appendChild(modal);
+        commentForm.parentElement.appendChild(overlay);
+        modal.setAttribute("style", "display: none;");
+    }
+}
+
+
+async function fillResponseSection() {
+    // Load the prompts into each textarea to allow the user to modify them before sending
+
+    // Toxicity
+    const toxicityTextarea = document.getElementById('toxicity_response_area');
+    if (toxicityTextarea) {
+        const toxicState = await getToggleState('toggleToxicity');
+        if (toxicState === 'checked') {
+            toxicityTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            const toxicityTitle = toxicityTextarea.previousElementSibling;
+            if (toxicityTitle) {
+                toxicityTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
+            }
+        } else {
+            toxicityTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
+            const toxicityTitle = toxicityTextarea.previousElementSibling;
+            if (toxicityTitle) {
+                toxicityTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
+            }
+        }
+    }
+
+    // Relevance
+    const relevanceTextarea = document.getElementById('relevance_response_area');
+    if (relevanceTextarea) {
+        const relevanceState = await getToggleState('toggleRelevance');
+        if (relevanceState === 'checked') {
+            relevanceTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            const relevanceTitle = relevanceTextarea.previousElementSibling;
+            if (relevanceTitle) {
+                relevanceTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
+            }
+        } else {
+            relevanceTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
+            const relevanceTitle = relevanceTextarea.previousElementSibling;
+            if (relevanceTitle) {
+                relevanceTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
+            }
+        }
+    }
+
+    // Reformulation
+    const reformTextarea = document.getElementById('reformulation_response_area');
+    if (reformTextarea) {
+        const reformState = await getToggleState('toggleReformulation');
+        if (reformState === 'checked') {
+            reformTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            const reformTitle = reformTextarea.previousElementSibling;
+            if (reformTitle) {
+                reformTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
+            }
+        } else {
+            reformTextarea.setAttribute("style", "display: none; width: 100%;"); // Hide the textarea
+            const reformTitle = reformTextarea.previousElementSibling;
+            if (reformTitle) {
+                reformTitle.setAttribute("style", "display: none; width: 100%;"); // Hide the title
+            }
+        }
+    }
+}
+
+
 // Attach onclick event on LLM Icon
 function attachIconEvent(icon) {
     icon.onmouseover = function () {
@@ -419,8 +516,11 @@ function attachIconEvent(icon) {
     };
     icon.onclick = async function (event) {
 
-        const modal = document.getElementById('request-modal');
-        modal.setAttribute("style", "display: block;");
+        const request_modal = document.getElementById('request-modal');
+        request_modal.setAttribute("style", "display: block;");
+
+        const response_modal = document.getElementById('response-modal');        
+        response_modal.setAttribute("style", "display: none;");
         fillRequestSection();
 
 
@@ -450,7 +550,7 @@ function attachIconEvent(icon) {
             try {
                 let promptsResponses = await createPrompts();
 
-                console.log('promptsResponses bellow');
+                console.log('promptsResponses below');
                 console.log(promptsResponses);
                 clearInterval(intervalId); // Stop the buffering effect
                 // Process and display the responses
