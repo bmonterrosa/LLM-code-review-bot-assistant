@@ -6,7 +6,8 @@ var promptID = null;
 var token = '';
 var googleGemma2b = 'google/gemma-2b-it';
 var stabilityAi2b = 'stabilityai/stable-code-instruct-3b';
-const defaultLLMs = ['google/gemma-2b-it', 'stabilityai/stable-code-instruct-3b', 'codellama/CodeLlama-7b-Instruct-hf'];
+var tinyLlama = 'TinyLlama/TinyLlama-1.1B-Chat-v1.0';
+const defaultLLMs = ['google/gemma-2b-it', 'stabilityai/stable-code-instruct-3b', 'TinyLlama/TinyLlama-1.1B-Chat-v1.0'];
 
 
 // ---------- LISTENERS ----------
@@ -395,11 +396,43 @@ function createRequestSectionStructure() {
         sendButton.style.marginLeft = 'auto'; // Align button to the center
         sendButton.style.marginRight = 'auto'; // Align button to the center
         sendButton.style.display = 'inline-block'; // Make the button an inline-block element
-        sendButton.onclick = function () {
+        sendButton.onclick = async function () {
             const request_modal = document.getElementById('request-modal');
             request_modal.setAttribute("style", "display: none;");
 
             //TODO: ARMANDO: Add send request behaviour here
+            //Call new function HERE but keep old commented
+            try {
+            let resBox = document.getElementById("llm-response");
+
+            //Add a buffering effect to the response box
+            let dotCount = 0;
+            const maxDots = 3;
+            const interval = 500;
+
+            const intervalId = setInterval(() => {
+                dotCount = (dotCount + 1) % (maxDots + 1);
+                resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
+            }, interval);
+
+                let promptsResponses = await createPrompts();
+                console.log('TODO promptsResponses below');
+                console.log(promptsResponses);
+                clearInterval(intervalId); // Stop the buffering effect
+                // Process and display the responses
+                resBox.value = promptsResponses.join('\n');
+
+                // Send the result to the background page or wherever it's needed
+                chrome.runtime.sendMessage({
+                    from: 'popup',
+                    subject: 'llmResponse',
+                    response: promptsResponses
+                });
+            } catch (error) {
+                console.error(error);
+                clearInterval(intervalId);
+                resBox.value = "Error: Could not get a response.";
+            }
 
             const response_modal = document.getElementById('response-modal');
             fillResponseSection();
@@ -423,6 +456,21 @@ function createRequestSectionStructure() {
 
 
 async function fillRequestSection() {
+    let modal = document.getElementById("request-modal");
+    let overlay = document.getElementById("request-overlay");
+    let modalContent = document.getElementById("request-content");
+
+    const generalPromptTextarea = document.getElementById('general-prompt_prompt_area');
+    if (generalPromptTextarea) {
+        let basePrompt = await getBasePrompt(); 
+        // Set the textarea content
+        generalPromptTextarea.value = basePrompt;
+        generalPromptTextarea.setAttribute("style", "display: block; width: 100%;");
+        const generalPromptTitle = generalPromptTextarea.previousElementSibling;
+        if (generalPromptTitle) {
+            generalPromptTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
+        }
+    }
     // Load the prompts into each textarea to allow the user to modify them before sending
 
     // Files
@@ -430,7 +478,10 @@ async function fillRequestSection() {
     if (filesTextarea) {
         const codeState = await getToggleState('toggleCode');
         if (codeState === 'checked') {
+            //todo: set text
+            let filePrompt = await getFilePrompt(); //files_prompt_area
             filesTextarea.setAttribute("style", "display: block; width: 100%;");
+            filesTextarea.value = filePrompt;
             const filesTitle = filesTextarea.previousElementSibling;
             if (filesTitle) {
                 filesTitle.setAttribute("style", "display: block; width: 100%;");; // Show the title
@@ -449,7 +500,9 @@ async function fillRequestSection() {
     if (reviewsTextarea) {
         const reviewState = await getToggleState('toggleReviews');
         if (reviewState === 'checked') {
+            let reviewPrompt = await getReviewPrompt();
             reviewsTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            reviewsTextarea.value = reviewPrompt;
             const reviewsTitle = reviewsTextarea.previousElementSibling;
             if (reviewsTitle) {
                 reviewsTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
@@ -468,7 +521,9 @@ async function fillRequestSection() {
     if (toxicityTextarea) {
         const toxicState = await getToggleState('toggleToxicity');
         if (toxicState === 'checked') {
+            let toxicityPrompt = getToxicityPrompt();
             toxicityTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            toxicityTextarea.value = toxicityPrompt;
             const toxicityTitle = toxicityTextarea.previousElementSibling;
             if (toxicityTitle) {
                 toxicityTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
@@ -488,7 +543,9 @@ async function fillRequestSection() {
     if (relevanceTextarea) {
         const toxicState = await getToggleState('toggleRelevance');
         if (toxicState === 'checked') {
+            let relevancePrompt = getRelevancePrompt();
             relevanceTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            relevanceTextarea.value = relevancePrompt;
             const relevanceTitle = relevanceTextarea.previousElementSibling;
             if (relevanceTitle) {
                 relevanceTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
@@ -507,7 +564,9 @@ async function fillRequestSection() {
     if (reformTextarea) {
         const reformState = await getToggleState('toggleReform');
         if (reformState === 'checked') {
+            let reformPrompt = getReformPrompt();
             reformTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
+            reformTextarea.value = reformPrompt;
             const reformTitle = reformTextarea.previousElementSibling;
             if (reformTitle) {
                 reformTitle.setAttribute("style", "display: block; width: 100%;"); // Show the title
@@ -551,39 +610,39 @@ function attachIconEvent(icon) {
         var popup = document.getElementById('popup-llm');
         if (popup.style.display === 'none') {
             popup.style.display = 'flex';
-            let resBox = document.getElementById("llm-response");
+            // let resBox = document.getElementById("llm-response");
 
-            //Add a buffering effect to the response box
-            let dotCount = 0;
-            const maxDots = 3;
-            const interval = 500;
+            // //Add a buffering effect to the response box
+            // let dotCount = 0;
+            // const maxDots = 3;
+            // const interval = 500;
 
-            const intervalId = setInterval(() => {
-                dotCount = (dotCount + 1) % (maxDots + 1);
-                resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
-            }, interval);
+            // const intervalId = setInterval(() => {
+            //     dotCount = (dotCount + 1) % (maxDots + 1);
+            //     resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
+            // }, interval);
 
             //Call new function HERE but keep old commented
-            try {
-                let promptsResponses = await createPrompts();
+            // try {
+            //     let promptsResponses = await createPrompts();
 
-                console.log('promptsResponses below');
-                console.log(promptsResponses);
-                clearInterval(intervalId); // Stop the buffering effect
-                // Process and display the responses
-                resBox.value = promptsResponses.join('\n');
+            //     console.log('promptsResponses below');
+            //     console.log(promptsResponses);
+            //     clearInterval(intervalId); // Stop the buffering effect
+            //     // Process and display the responses
+            //     resBox.value = promptsResponses.join('\n');
 
-                // Send the result to the background page or wherever it's needed
-                chrome.runtime.sendMessage({
-                    from: 'popup',
-                    subject: 'llmResponse',
-                    response: promptsResponses
-                });
-            } catch (error) {
-                console.error(error);
-                clearInterval(intervalId);
-                resBox.value = "Error: Could not get a response.";
-            }
+            //     // Send the result to the background page or wherever it's needed
+            //     chrome.runtime.sendMessage({
+            //         from: 'popup',
+            //         subject: 'llmResponse',
+            //         response: promptsResponses
+            //     });
+            // } catch (error) {
+            //     console.error(error);
+            //     clearInterval(intervalId);
+            //     resBox.value = "Error: Could not get a response.";
+            // }
         } else {
             popup.style.display = 'none';
         }
@@ -1242,11 +1301,13 @@ async function getPullRequestComments() {
         try {
             var urlInfo = getInfoFromURL();
             const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
+            console.log("URL:  " + url);
             const response = await fetch(url, { headers: headers });
             if (!response.ok) {
                 throw new Error(`Error: ${response.status}`);
             }
             const data = await response.json();
+            console.log("ResponseData:  " + data);
             const comments = data.map(async comment => {
                 if (comment.user.login != "github-actions[bot]") {
                     return comment.body;
@@ -1278,6 +1339,7 @@ async function getPullRequestReviews() {
             const data = await response.json();
             const reviews = data.map(async review => {
                 if (!review.in_reply_to_id) {
+                    console.log("Reviews in map:" + review.body);
                     return `code en revue : ${review.diff_hunk}\ncommentaire : ${review.body}`;
                 }
             });
@@ -1338,7 +1400,7 @@ async function getPullRequestFiles() {
 function getAllPullRequestComments() {
     return getPullRequestComments().then(comments => {
         if (comments) {
-            console.log("getAllPullRequestComments : " + comments);
+           
             return comments;
         }
         return [];
@@ -1349,6 +1411,7 @@ function getAllPullRequestComments() {
 function getAllPullRequestReviews() {
     return getPullRequestReviews().then(reviews => {
         if (reviews) {
+            console.log("getAllPullRequestReviews: " + reviews);
             return reviews;
         }
         return [];
@@ -1357,7 +1420,6 @@ function getAllPullRequestReviews() {
 
 //Return an array of strings that contains, filename: + patch
 async function getAllFileContent() {
-    console.log("Entering getAllFileContentUpdated");
     let files = await getPullRequestFiles();
     if (!files || files.length === 0) {
         console.log("No files found or an error occurred.");
@@ -1370,7 +1432,6 @@ async function getAllFileContent() {
             return `filename: ${file.filename}\npatch: No changes or binary file`;
         }
     });
-    console.log("Modified files with content:", filesWithPatches);
     return filesWithPatches;
 }
 
@@ -1378,55 +1439,57 @@ async function getAllFileContent() {
 
 // ----------  PROMPT FUNCTION WHEN BUTTON CLICKED ---------- 
 async function createPrompts() {
-    var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
-    // Start timer
-    let startTime = performance.now();
-    let comments = await getAllPullRequestComments();
-    console.log("Comments before if:" + comments);
-    if (comments) {
-        basePrompt += "Here are the previous comments made on a Pull request : \n";
-        comments.forEach(comment => {
-            basePrompt += comment + "\n";
-        });
-    }
-    // Include files changed
-    let codeState = await getToggleState('toggleCode');
-    if (codeState === 'checked') {
-        basePrompt += "Here are the file names and code affected by this pull request : \n";
-        let fileContents = await getAllFileContent();
-        if (fileContents.length > 0) {
-            fileContents.forEach(fileContent => {
-                basePrompt += fileContent + "\n";
-            });
-        } else {
-            basePrompt += "No file changes are available for this pull request.\n";
-        }
-        basePrompt += "End of code section.\n";
-    }
-    // Inlcude reviews
-    let reviewsState = await getToggleState('toggleReviews');
-    if (reviewsState === 'checked') {
-        let reviews = await getAllPullRequestReviews();
-        if (reviews) {
-            basePrompt += "Here are the reviews made on the pull request : \n";
-            reviews.forEach(review => {
-                basePrompt += review + "\n";
-            });
-        }
-        basePrompt += "End of reviews.\n";
-    }
-    let pendingComment = getCurrentComment();
-    basePrompt += "Here is the pending reply : " + pendingComment + "\n";
-
-
     let promptsResponsesArray = [];
+    let pendingComment = getCurrentComment();
+    console.log("Entering Prompt Creation...");
+    console.log("PendingComments: " + pendingComment);
     if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
+        let startTime = performance.now();
         console.log("Entering Prompt making");
+        let promptValues = {
+            generalPrompt: '',
+            filePrompt: '',
+            reviewPrompt: '',
+            toxicityPrompt: '',
+            relevancePrompt: '',
+            reformPrompt: ''
+        };
+    
+        // General Prompt
+        const generalPromptTextarea = document.getElementById('general-prompt_prompt_area');
+        if (generalPromptTextarea) {promptValues.generalPrompt = generalPromptTextarea.value;}
+    
+        // Files Prompt
+        const filesTextarea = document.getElementById('files_prompt_area');
+        if (filesTextarea) {promptValues.filePrompt = filesTextarea.value;}
+    
+        // Reviews Prompt
+        const reviewsTextarea = document.getElementById('reviews_prompt_area');
+        if (reviewsTextarea) {promptValues.reviewPrompt = reviewsTextarea.value;}
+    
+        // Toxicity Prompt
+        const toxicityTextarea = document.getElementById('toxicity_prompt_area');
+        if (toxicityTextarea) {promptValues.toxicityPrompt = toxicityTextarea.value;}
+    
+        // Relevance Prompt
+        const relevanceTextarea = document.getElementById('relevance_prompt_area');
+        if (relevanceTextarea) {promptValues.relevancePrompt = relevanceTextarea.value;}
+    
+        // Reformulation Prompt
+        const reformTextarea = document.getElementById('reformulation_prompt_area');
+        if (reformTextarea) {promptValues.reformPrompt = reformTextarea.value;}
+
         let relevanceState = await getToggleState('toggleRelevance');
         let toxicState = await getToggleState('toggleToxicity');
         let reformState = await getToggleState("toggleReform");
-        let modelID = chrome.storage.sync.get("selectedLlmId");
+        let codeState = await getToggleState('toggleCode');
+        let reviewState = await getToggleState('reviewCode');
+        let modelID = await chrome.storage.sync.get("selectedLlmId");
         console.log("Model_ID used= " + modelID);
+
+        let basePrompt = promptValues.generalPrompt;
+        if (codeState === 'checked') {basePrompt += promptValues.filePrompt;}
+        if (reviewState === 'checked') {basePrompt += promptValues.reviewPrompt;}
 
         // Relevance
         if (relevanceState === 'checked') {
@@ -1434,29 +1497,12 @@ async function createPrompts() {
 
             //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createRelevancePrompt();
             //ELSE SET relevancePrompt WITH PROMPT FROM USER
-
-            let relevancePrompt = await createRelevancePrompt();
-            console.log("Relevance Prompt: " + relevancePrompt);
+            let relevancePrompt = basePrompt + promptValues.relevancePrompt;
+            //console.log("Relevance Prompt: " + relevancePrompt);
             if (modelID == googleGemma2b) { relevanceResponse = await getGemmaResponse(relevancePrompt); }
             else if (modelID == stabilityAi2b) { relevanceResponse = await getStableResponse(relevancePrompt); }
+            else if(modelID == tinyLlama){ relevanceResponse = await getTinyResponse(relevancePrompt);}
             else { relevanceResponse = await getDefaultLlmResponse(relevancePrompt); }
-            // Function to get the response for each prompt
-            const getResponse = async (additionalPrompt) => {
-                let completePrompt = basePrompt + additionalPrompt;
-                console.log("Prompt being processed: " + completePrompt);
-                const response = await fetch(url + "generate-prompt", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        prompt: completePrompt,
-                        num_tokens: 500
-                    })
-                });
-                const responseData = await response.json();
-                return responseData.result.split(additionalPrompt).pop().trim();
-            };
             promptsResponsesArray.push("Relevance: " + relevanceResponse);
         }
         // Toxicity
@@ -1466,10 +1512,11 @@ async function createPrompts() {
             //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createToxicityPrompt();
             //ELSE SET toxicPrompt WITH PROMPT FROM USER
 
-            let toxicPrompt = await createToxicityPrompt();
-            console.log("Toxic Prompt:" + toxicPrompt);
+            let toxicPrompt = basePrompt + promptValues.toxicityPrompt;
+            //console.log("Toxic Prompt:" + toxicPrompt);
             if (modelID == googleGemma2b) { toxicResponse = await getGemmaResponse(toxicPrompt); }
             else if (modelID == stabilityAi2b) { toxicResponse = await getStableResponse(toxicPrompt); }
+            else if(modelID == tinyLlama){toxicResponse = await getTinyResponse(toxicPrompt);}
             else { toxicResponse = await getDefaultLlmResponse(toxicPrompt); }
             promptsResponsesArray.push("Toxicity: " + toxicResponse);
         }
@@ -1480,10 +1527,11 @@ async function createPrompts() {
             //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createReformPrompt();
             //ELSE SET reformPrompt WITH PROMPT FROM USER
 
-            let reformPrompt = await createReformPrompt();
-            console.log("reform Prompt:" + reformPrompt);
+            let reformPrompt = basePrompt + promptValues.reformPrompt;
+            //console.log("reform Prompt:" + reformPrompt);
             if (modelID == googleGemma2b) { reformResponse = await getGemmaResponse(reformPrompt); }
             else if (modelID == stabilityAi2b) { reformResponse = await getStableResponse(reformPrompt); }
+            else if(modelID == tinyLlama){reformResponse = await getTinyResponse(reformPrompt);}
             else { reformResponse = await getDefaultLlmResponse(reformPrompt); }
             promptsResponsesArray.push("Reformulation: " + reformResponse);
         }
@@ -1500,72 +1548,85 @@ async function createPrompts() {
         console.log("No comment in text area");
         promptsResponsesArray.push("Please write a comment in the text area.");
     }
+    console.log("ResponseArray: " + promptsResponsesArray);
     return promptsResponsesArray;
 }
 
-
 // ----------  PROMPTS GENERATION ----------
 
-//Returns the toxicity prompt in full
-async function generateBasePrompt() {
+//Creates the base prompt + comments
+async function getBasePrompt() {
     var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
     let comments = await getAllPullRequestComments();
-    //console.log("Comments before if:" + comments);
-    if (comments) {
+    if (comments.length > 0) {
         basePrompt += " Here are the previous comments made on a Pull request: ";
         comments.forEach(comment => {
             basePrompt += comment;
         });
     }
+    else{
+        basePrompt += "No comments were made on this pull request.";
+    }
+    return basePrompt;
+}
+//
+async function getFilePrompt() {
+    var filePrompt = '';
     let codeState = await getToggleState('toggleCode');
     if (codeState === 'checked') {
-        basePrompt += "Here are the file names and code affected by this pull request: \n";
+        filePrompt += "Here are the file names and code affected by this pull request: \n";
         let fileContents = await getAllFileContent();
 
         // Add the filename and patch text to the prompt
         if (fileContents.length > 0) {
             fileContents.forEach(fileContent => {
-                basePrompt += fileContent + "\n";
+                filePrompt += fileContent + "\n";
             });
         } else {
-            basePrompt += "No file changes are available for this pull request.\n";
+            filePrompt += "No file changes are available for this pull request.\n";
         }
     }
-    return basePrompt;
+    return filePrompt;
+}
+async function getReviewPrompt() {
+    var reviewPrompt = '';
+    let reviewState = await getToggleState('toggleReviews');
+    if (reviewState == 'checked') {
+        reviewPrompt += "Here are the reviews made on this pull request: \n";
+        let reviewContents = await getAllPullRequestReviews();
+        // Process and add each review to the prompt
+        if (reviewContents.length > 0) {
+            reviewContents.forEach(reviewContent => {
+                reviewPrompt += reviewContent + "\n";
+            });
+            reviewPrompt += "End of reviews.\n";
+        } else {
+            reviewPrompt += "No reviews are available for this pull request.\n";
+        }
+    }
+    return reviewPrompt;
 }
 
-
-async function createToxicityPrompt() {
-    let basePrompt = await generateBasePrompt();
-    console.log("Toxic Base Prompt:" + basePrompt);
+function getToxicityPrompt() {
     let pendingComment = getCurrentComment();
-    basePrompt += "Here is the pending reply: " + pendingComment;
-    console.log("Toxic Base + pending Prompt:" + basePrompt);
-
-    //Toxicity Prompt
-    basePrompt += "Now as the helper bot, can you tell If the pending reply toxic? Your answer must be 2 sentences maximum and direct."
-    console.log("Final Toxic prompt: " + basePrompt);
-    return basePrompt;
+    let toxicityPrompt = "Here is the pending reply: " + pendingComment;
+    toxicityPrompt += "Now as the helper bot, can you tell If the pending reply toxic? Your answer must be 2 sentences maximum and direct.";
+    return toxicityPrompt;
 }
 
-//Returns the toxicity prompt in full
-async function createRelevancePrompt() {
-    let basePrompt = await generateBasePrompt();
+//Returns the Relevancy/Pertinance prompt
+ function getRelevancePrompt() {
     let pendingComment = getCurrentComment();
-    basePrompt += "Here is the pending reply: " + pendingComment;
-
-    //Relevancy Prompt
-    basePrompt += "Now as the helper bot, can you tell If the pending reply relevant? Your answer must be 2 sentences maximum and direct."
-    return basePrompt;
+    let relevancePrompt = "Here is the pending reply: " + pendingComment;
+    relevancePrompt += "Now as the helper bot, can you tell If the pending reply relevant? Your answer must be 2 sentences maximum and direct.";
+    return relevancePrompt;
 }
-async function createReformPrompt() {
-    let basePrompt = await generateBasePrompt();
+//Return the reform prompt
+ function getReformPrompt() {
     let pendingComment = getCurrentComment();
-    basePrompt += "Here is the pending reply: " + pendingComment;
-
-    //Reform Prompt
-    basePrompt += "Now as the helper bot,Reformulate the pending reply in a professional way. Your answer must be 2 sentences maximum and direct."
-    return basePrompt;
+    let reformPrompt = "Here is the pending reply: " + pendingComment;
+    reformPrompt += "Now as the helper bot, Reformulate the pending reply in a professional way. Your answer must be 2 sentences maximum and direct.";
+    return reformPrompt;
 }
 
 // ----------  GET LLM RESPONSE + FORMATTING ---------- 
@@ -1600,12 +1661,31 @@ async function getStableResponse(prompt) {
         })
     });
     const responseData = await response.json();
-    console.log("responseData:" + responseData.result);
     return responseData.result.split(prompt).pop().trim();
 }
+async function getTinyResponse(prompt) {
+    const response = await fetch(url + "generate-response-TinyLlama", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            prompt: prompt,
+            num_tokens: 600
+        })
+    });
+    const responseData = await response.json();
+    // Assuming the relevant content is after the last '</s>'
+    let answer = responseData.result.split("</s>").pop().trim();
+    
+    // If you need further cleanup based on the format of the response, adjust the logic here
+    
+    return answer;
+}
+
 
 async function getDefaultLlmResponse(prompt) {
-    const response = await fetch(url + "generate-default-response", {
+    const response = await fetch(url + "generate-response-default", {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

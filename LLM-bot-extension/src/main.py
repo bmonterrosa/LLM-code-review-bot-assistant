@@ -3,7 +3,8 @@ from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, GPTNeoForCausalLM, GPT2Tokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, GPTNeoForCausalLM, GPT2Tokenizer, pipeline
+
 from torch import cuda
 from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 
@@ -31,7 +32,7 @@ model_loaded=""
 
 save_dir = "/models/"
 
-model_id = "stabilityai/stable-code-instruct-3b"
+model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 offload_folder="/"
 auto_model=AutoModelForCausalLM
 auto_tokenizer=AutoTokenizer
@@ -259,29 +260,40 @@ def message_generate_gemma(request: PromptMessage):
     print(f"--- {(time.time() - start_time)} seconds ---")
     return {"result": generated_text}
 
-@app.post("/generate-response-chatGPT")
-def message_generate_chatgpt(request: PromptMessage):
-    # Ensure the tokenizer and model are already loaded
-    if tokenizer == "" or model == "":
-        raise HTTPException(status_code=503, detail="Model is not loaded")
+@app.post("/generate-response-TinyLlama")
+async def message_generate_tinylama(request_body: PromptMessage):
+    # Ensure your pipeline is ideally initialized outside of this function
+    # for efficiency, especially if this API will handle multiple requests.
+    pipe = pipeline("text-generation", 
+                    model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", 
+                    torch_dtype=torch.bfloat16, 
+                    device_map="auto")
+    
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a friendly chatbot.",
+        },
+        {"role": "user", "content": request_body.prompt},
+    ]
+    
+    try:
+        # Formatting the prompt for TinyLlama
+        formatted_prompt = pipe.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        
+        # Generating the response
+        outputs = pipe(formatted_prompt, 
+                    max_new_tokens=request_body.num_tokens, 
+                    do_sample=False,  # Disable sampling for more deterministic output
+                    temperature=0.7 
+                    )
 
-    start_time = time.time()
-    prompt = request.prompt.strip()
-
-    # Prepare the prompt for the model
-    inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=True).to(device)
-
-    # Generate the response using the specified number of tokens
-    output = model.generate(
-        **inputs,
-        #max_new_tokens=request.num_tokens,  # Use the specified number of tokens
-        max_length=request.num_tokens
-        # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
-    )
-    output = output[0].to(device)
-    generated_text = tokenizer.decode(output)
-    print(f"--- {(time.time() - start_time)} seconds ---")
-    return {"result": generated_text}
+        
+        # Extracting and returning the generated text
+        generated_text = outputs[0]["generated_text"]
+        return {"result": generated_text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/generate-response-stable")
 async def message_generate_stable(request: PromptMessage):
