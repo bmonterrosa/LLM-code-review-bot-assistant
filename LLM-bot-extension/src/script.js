@@ -265,6 +265,8 @@ function createModal() {
             modalContent.appendChild(title);
 
             const textarea = document.createElement('textarea');
+            const textareaId = element.toLowerCase().replace(/\s+/g, '-') + '_prompt_area'; // Convert element name to lowercase and replace spaces with hyphens
+            textarea.id = textareaId; // Set textarea ID
             textarea.style.width = '100%';
             textarea.style.resize = 'both'; // Allow both horizontal and vertical resizing
             textarea.style.marginBottom = '10px'; // Add margin between each textarea
