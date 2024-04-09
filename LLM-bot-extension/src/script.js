@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     addReformToggle();
     addStatusToggle();
 
+    addReviewsToggle()
     addCodeToggle()
     addRelevanceToggle()
     addToxicToggle()
@@ -462,11 +463,58 @@ async function addCodeToggle() {
         }
         lswitch.appendChild(toggle);
         lswitch.appendChild(slider);
-        toggle.addEventListener('change', function () {
+        toggle.addEventListener('change', function(e) {
             chrome.runtime.sendMessage({
                 from: 'popup',
                 subject: 'toggleCode',
                 toggleCode: toggle.checked
+            });
+            if (e.target.checked) {
+                alert("This option can significantly slow down the response generation if there are too many files.");
+            }
+        });
+    }
+}
+
+// Add reviews toggle
+async function addReviewsToggle(){
+    let lswitch = document.getElementById('reviewsSwitch');
+    let currrentState = "";
+    let toggle = document.createElement("input");
+
+    try {
+        currrentState = await getToggleState('toggleReviews');
+        if (!currrentState){
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleReviews',
+                toggleReform: toggle.checked
+            });
+            currrentState = await getToggleState('toggleReviews');
+        }
+    } catch (error) {
+        console.log("Error:",message);
+    }
+
+    toggle.type = "checkbox";
+    toggle.id = "toggleReviews";
+    
+    let slider = document.createElement("span");
+    slider.classList = "slider round";
+
+    if (lswitch) {
+        if (currrentState === "checked") {
+            toggle.checked = true;
+        } else {
+            toggle.checked = false;
+        }    
+        lswitch.appendChild(toggle);
+        lswitch.appendChild(slider);
+        toggle.addEventListener('change', function() {
+            chrome.runtime.sendMessage({
+                from: 'popup',
+                subject: 'toggleReviews',
+                toggleReviews: toggle.checked
             });
         });
     }
@@ -887,9 +935,6 @@ function loadGitHubToken() {
     });
 }
 
-
-
-
 // Get pull request comments 
 async function getPullRequestComments() {
     await loadGitHubToken()
@@ -899,34 +944,56 @@ async function getPullRequestComments() {
     if (token) {
         try {
             var urlInfo = getInfoFromURL();
-            const prUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
-            const reviewsUrl = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/comments`;
-            const prResponse = await fetch(prUrl, { headers: headers });
-            if (!prResponse.ok) {
-                throw new Error(`Error: ${prResponse.status}`);
+            const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/issues/${urlInfo.pullNumber}/comments`;
+            const response = await fetch(url, { headers: headers });
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status}`);
             }
-            const reviewsResponse = await fetch(reviewsUrl, { headers: headers });
-            if (!reviewsResponse.ok) {
-                throw new Error(`Error: ${reviewsResponse.status}`);
-            }
-            const prData = await prResponse.json();
-            const prComments = prData.map(async prComment => {
-                if (prComment.user.login != "github-actions[bot]") {
-                    return prComment.body;
+            const data = await response.json(); 
+            const comments = data.map(async comment => {
+                if (comment.user.login != "github-actions[bot]") {
+                    return comment.body;
                 }
             });
-            const reviewsData = await reviewsResponse.json();
-            const reviewsComments = reviewsData.map(async reviewsComment => {
-                return reviewsComment.body;
-            });
-            return Promise.all(prComments.concat(reviewsComments));
+            return Promise.all(comments);
         } catch (error) {
             console.log(error);
         }
     } else {
-        alert("PR-Comments:No Personal access token detected!")
+        alert("PR-Comments : No Personal access token detected!")
     }
 }
+
+// Get pull request reviews 
+async function getPullRequestReviews() {
+    await loadGitHubToken()
+    var headers = {
+        'Authorization': `token ${token}`,
+    }
+    if (token) {
+        try {
+            var urlInfo = getInfoFromURL();
+            const url = `https://api.github.com/repos/${urlInfo.owner}/${urlInfo.repo}/pulls/${urlInfo.pullNumber}/comments`;
+            const response = await fetch(url, { headers: headers });
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status}`);
+            }
+            const data = await response.json(); 
+            const reviews = data.map(async review => {
+                if (!review.in_reply_to_id) {
+                    return `code en revue : ${review.diff_hunk}\ncommentaire : ${review.body}`;
+                }
+            });
+            return Promise.all(reviews);
+        } catch (error) {
+            console.log(error);
+        }
+    }else{
+        alert("PR-Reviews : No Personal access token detected!")
+    }
+}
+
+
 
 // Extract info from URL to get all necessary data
 function getInfoFromURL() {
@@ -966,7 +1033,7 @@ async function getPullRequestFiles() {
         } catch (error) {
         }
     } else {
-        alert("PR-FILES:No Personal access token detected!")
+        alert("PR-FILES : No Personal access token detected!")
     }
 }
 
@@ -974,8 +1041,18 @@ async function getPullRequestFiles() {
 function getAllPullRequestComments() {
     return getPullRequestComments().then(comments => {
         if (comments) {
-            //console.log("getAllPullRequestComments:" +comments);
+            console.log("getAllPullRequestComments : " + comments);
             return comments;
+        }
+        return [];
+    });
+}
+
+// Get clean comments
+function getAllPullRequestReviews(){
+    return getPullRequestReviews().then(reviews => {
+        if (reviews) {
+            return reviews;
         }
         return [];
     });
@@ -991,9 +1068,9 @@ async function getAllFileContent() {
     }
     let filesWithPatches = files.map(file => {
         if (file.patch) {
-            return `filename: ${file.filename}, patch: ${file.patch}`;
+            return `filename: ${file.filename}\npatch: ${file.patch}`;
         } else {
-            return `filename: ${file.filename}, patch: No changes or binary file`;
+            return `filename: ${file.filename}\npatch: No changes or binary file`;
         }
     });
     console.log("Modified files with content:", filesWithPatches);
@@ -1004,10 +1081,46 @@ async function getAllFileContent() {
 
 // ----------  PROMPT FUNCTION WHEN BUTTON CLICKED ---------- 
 async function createPrompts() {
-
-    let promptsResponsesArray = [];
-    let pendingComment = getCurrentComment();
+    var basePrompt = "You are a helper bot that is assisting a programmer writing a reply to a pull request.";
+    // Start timer
     let startTime = performance.now();
+    let comments = await getAllPullRequestComments();
+    console.log("Comments before if:" + comments);
+    if (comments) {
+        basePrompt += "Here are the previous comments made on a Pull request : \n";
+        comments.forEach(comment => {
+            basePrompt += comment + "\n";
+        });
+    }
+    // Include files changed
+    let codeState = await getToggleState('toggleCode');
+    if (codeState === 'checked') {
+        basePrompt += "Here are the file names and code affected by this pull request : \n";
+        let fileContents = await getAllFileContent();
+        if (fileContents.length > 0) {
+            fileContents.forEach(fileContent => {
+                basePrompt += fileContent + "\n";
+            });
+        } else {
+            basePrompt += "No file changes are available for this pull request.\n";
+        }
+        basePrompt += "End of code section.\n";
+    }
+    // Inlcude reviews
+    let reviewsState = await getToggleState('toggleReviews');
+    if (reviewsState === 'checked') {
+        let reviews = await getAllPullRequestReviews();
+        if (reviews) {
+            basePrompt += "Here are the reviews made on the pull request : \n";
+            reviews.forEach(review => {
+                basePrompt += review + "\n";
+            });
+        }
+        basePrompt += "End of reviews.\n";
+    }
+    let pendingComment = getCurrentComment();
+    basePrompt += "Here is the pending reply : " + pendingComment + "\n";
+    let promptsResponsesArray = [];
     if (typeof pendingComment === 'string' && pendingComment.trim() !== "") {
         console.log("Entering Prompt making");
         let relevanceState = await getToggleState('toggleRelevance');
@@ -1015,41 +1128,75 @@ async function createPrompts() {
         let reformState = await getToggleState("toggleReform");
         let modelID = chrome.storage.sync.get("selectedLlmId");
         console.log("Model_ID used= " + modelID);
-
+   
+        // Relevance
         if (relevanceState === 'checked') {
             let relevanceResponse;
+
             //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createRelevancePrompt();
             //ELSE SET relevancePrompt WITH PROMPT FROM USER
+
             let relevancePrompt = await createRelevancePrompt();
             console.log("Relevance Prompt: " + relevancePrompt);
             if (modelID == googleGemma2b) { relevanceResponse = await getGemmaResponse(relevancePrompt); } else
-                if (modelID == stabilityAi2b) { relevanceResponse = await getStableResponse(relevancePrompt); }
-                else { relevanceResponse = await getDefaultLlmResponse(relevancePrompt); }
-            promptsResponsesArray.push("Relevance: " + relevanceResponse);
+            if (modelID == stabilityAi2b) { relevanceResponse = await getStableResponse(relevancePrompt); }
+            else { relevanceResponse = await getDefaultLlmResponse(relevancePrompt); }
+            // Function to get the response for each prompt
+            const getResponse = async (additionalPrompt) => {
+                let completePrompt = basePrompt + additionalPrompt;
+                console.log("Prompt being processed: " + completePrompt);
+                const response = await fetch(url + "generate-prompt", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: completePrompt,
+                        num_tokens: 500
+                    })
+                });
+                const responseData = await response.json();
+                return responseData.result.split(additionalPrompt).pop().trim();
+            };
+
+            //let relevanceResponse = await getResponse("Now as the helper bot, can you tell If the pending reply relevant? Keep your answer within 2 sentences.\n");
+            //promptsResponsesArray.push("Relevance: " + relevanceResponse);
         }
+        // Toxicity
         if (toxicState === 'checked') {
             let toxicResponse;
+
             //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createToxicityPrompt();
             //ELSE SET toxicPrompt WITH PROMPT FROM USER
+
             let toxicPrompt = await createToxicityPrompt();
             console.log("Toxic Prompt:" + toxicPrompt);
             if (modelID == googleGemma2b) { toxicResponse = await getGemmaResponse(toxicPrompt); } else
-                if (modelID == stabilityAi2b) { toxicResponse = await getStableResponse(toxicPrompt); }
-                else { toxicResponse = await getDefaultLlmResponse(toxicPrompt); }
-            promptsResponsesArray.push("Toxicity: " + toxicResponse);
+            if (modelID == stabilityAi2b) { toxicResponse = await getStableResponse(toxicPrompt); }
+            else { toxicResponse = await getDefaultLlmResponse(toxicPrompt); }
+
+            //let toxicResponse = await getResponse("Now as the helper bot,is the pending reply toxic? Keep your answer within 2 sentences.\n");
+            //promptsResponsesArray.push("Toxicity: " + toxicResponse);
         }
+        // Reformulation
         if (reformState === 'checked') {
             let reformResponse;
+
             //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createReformPrompt();
             //ELSE SET reformPrompt WITH PROMPT FROM USER
+
             let reformPrompt = await createReformPrompt();
             console.log("reform Prompt:" + reformPrompt);
             if (modelID == googleGemma2b) { reformResponse = await getGemmaResponse(reformPrompt); } else
-                if (modelID == stabilityAi2b) { reformResponse = await getStableResponse(reformPrompt); }
-                else { reformResponse = await getDefaultLlmResponse(reformPrompt); }
+            if (modelID == stabilityAi2b) { reformResponse = await getStableResponse(reformPrompt); }
+            else { reformResponse = await getDefaultLlmResponse(reformPrompt); }
             promptsResponsesArray.push("Reformulation: " + reformResponse);
+        
+            console.log("promptsResponses Array: " + promptsResponsesArray);
+            
+            //let reformResponse = await getResponse("Now as the helper bot,Reformulate the pending reply in a professional way within 2 sentences.\n");
+            //promptsResponsesArray.push("Reformulation: " + reformResponse);
         }
-        console.log("promptsResponses Array: " + promptsResponsesArray);
         // Check if no prompts were toggled and add a default reply
         if (promptsResponsesArray.length === 0) {
             promptsResponsesArray.push("Please toggle a prompt setting.");
