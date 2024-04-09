@@ -255,12 +255,8 @@ function createModal() {
         const modalContent = document.createElement('div');
         modalContent.classList.add('flex');
         modalContent.classList.add('request-content');
-
-
-        
-
-
-        
+        modalContent.innerHTML = 'This approach combines HTML for structure, CSS for styling, and JavaScript for functionality, providing a complete solution for creating a modal. The modal can contain any HTML elements, such as divs, headings, paragraphs, images, etc., as mentioned in the sources 23. The modal is initially hidden using the .hidden class, and JavaScript is used to remove this class when the modal should be displayed, and to add it back when the modal should be hidden';
+        modal.appendChild(modalContent);
         const overlay = document.createElement('div');
         overlay.classList.add('overlay');
         overlay.classList.add('hidden');
@@ -270,12 +266,11 @@ function createModal() {
     }
 }
 
-function openModal(promptsResponses) {
+function openModal() {
     let modal = document.getElementById("request-modal");
     let overlay = document.getElementById("request-overlay");
     let modalContent = document.getElementById("request-content");
-    modalContent.innerHTML = promptsResponses.join('\n');
-    modal.appendChild(modalContent);
+    
     modal.classList.remove("hidden");
     overlay.classList.remove("hidden");
 }
@@ -289,6 +284,9 @@ function attachIconEvent(icon) {
         this.style.transform = "translateY(-10%) scale(1)";
     };
     icon.onclick = async function (event) {
+
+        openModal();
+
         chrome.runtime.sendMessage({
             from: 'popup',
             subject: 'llmResponse',
@@ -313,9 +311,6 @@ function attachIconEvent(icon) {
             //Call new function HERE but keep old commented
             try {
                 let promptsResponses = await createPrompts();
-
-                openModal(promptsResponses);
-
 
                 console.log('promptsResponses bellow');
                 console.log(promptsResponses);
