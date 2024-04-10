@@ -148,7 +148,7 @@ async function addIconOverCommentBox() {
     if (textarea) {
         try {
             //add a function to add the text area
-            add_LLM_Reply_Area();
+            //add_LLM_Reply_Area();
             //Creating the LLM icon
             let icon = document.createElement('img');
             icon.id = "LLM_Icon";
@@ -1010,48 +1010,49 @@ function addEventSaveCustomLLM() {
 
 // ---------- TEXTAREA FUNCTIONS ----------
 
+//DEPRECATED
 // Add Textarea related to icon click
-async function add_LLM_Reply_Area() {
-    let parentNode = document.getElementById("partial-new-comment-form-actions");
-    if (!parentNode) {
-        console.error("Div not found for textArea");
-        return;
-    }
+// async function add_LLM_Reply_Area() {
+//     let parentNode = document.getElementById("partial-new-comment-form-actions");
+//     if (!parentNode) {
+//         console.error("Div not found for textArea");
+//         return;
+//     }
 
-    const divNode = document.createElement("div");
-    divNode.id = "popup-llm";
-    divNode.style.cssText = `
-        display: none; 
-        justify-content: space-between;
-        align-items: center;
-        margin-right: 2px;
-        width: 100%;
-        resize:none;
-    `;
+//     const divNode = document.createElement("div");
+//     divNode.id = "popup-llm";
+//     divNode.style.cssText = `
+//         display: none; 
+//         justify-content: space-between;
+//         align-items: center;
+//         margin-right: 2px;
+//         width: 100%;
+//         resize:none;
+//     `;
 
-    divNode.innerHTML = `
-        <div style="flex-grow: 1;margin-right: 4px; margin-top:2px;">
-            <textarea readonly id="llm-response" class="Box" style="border: 2px solid #3b7fac; min-height:32px; height:35px; width: 100%; resize:vertical; margin-right:2px;">Waiting for LLM response ... </textarea>
-        </div>
-        <div>
-            <button type="button" class="preview_button btn-primary btn" id="copySuggestion"style="margin-right:2px;background-color:#3b7fac;">Copy</button>
-        </div>
-    `;
-    parentNode.children[0].style.width = "-webkit-fill-available";
+//     divNode.innerHTML = `
+//         <div style="flex-grow: 1;margin-right: 4px; margin-top:2px;">
+//             <textarea readonly id="llm-response" class="Box" style="border: 2px solid #3b7fac; min-height:32px; height:35px; width: 100%; resize:vertical; margin-right:2px;">Waiting for LLM response ... </textarea>
+//         </div>
+//         <div>
+//             <button type="button" class="preview_button btn-primary btn" id="copySuggestion"style="margin-right:2px;background-color:#3b7fac;">Copy</button>
+//         </div>
+//     `;
+//     parentNode.children[0].style.width = "-webkit-fill-available";
 
-    parentNode.children[0].prepend(divNode);
+//     parentNode.children[0].prepend(divNode);
 
-    //Check for reform state for copy button
-    let copyButton = document.getElementById("copySuggestion");
-    let reformState = await getToggleState("toggleReform");
-    if (copyButton && reformState != null) {
-        if (reformState === "checked") {
-            copyButton.style.display = "flex";
-        } else if (reformState === "not_checked") {
-            copyButton.style.display = "none";
-        }
-    }
-}
+//     //Check for reform state for copy button
+//     let copyButton = document.getElementById("copySuggestion");
+//     let reformState = await getToggleState("toggleReform");
+//     if (copyButton && reformState != null) {
+//         if (reformState === "checked") {
+//             copyButton.style.display = "flex";
+//         } else if (reformState === "not_checked") {
+//             copyButton.style.display = "none";
+//         }
+//     }
+// }
 
 // Copy text
 function copyToClipboard() {
@@ -1378,7 +1379,18 @@ async function getAllFileContent() {
 }
 
 
-
+// This function converts chrome.storage.sync.get into a promise
+function getModelID() {
+    return new Promise((resolve, reject) => {
+      chrome.storage.sync.get("selectedLlmId", function (data) {
+        if (chrome.runtime.lastError) {
+          return reject(new Error(chrome.runtime.lastError));
+        }
+        resolve(data.selectedLlmId);
+      });
+    });
+  }
+  
 // ----------  PROMPT FUNCTION WHEN BUTTON CLICKED ---------- 
 async function createPrompts() {
     //let promptsResponsesArray = [];
@@ -1427,10 +1439,10 @@ async function createPrompts() {
         let reformState = await getToggleState("toggleReform");
         let codeState = await getToggleState('toggleCode');
         let reviewState = await getToggleState('reviewCode');
-        let modelID
-        chrome.storage.sync.get("selectedLlmId", function (data) {
-            modelID = data.selectedLlmId;
-        });
+        let modelID = await getModelID();
+        // await chrome.storage.sync.get("selectedLlmId", function (data) {
+        //     modelID = data.selectedLlmId; 
+        // });
         console.log("modelID: " + modelID);
 
         let basePrompt = promptValues.generalPrompt;
@@ -1442,6 +1454,7 @@ async function createPrompts() {
             let relevanceResponse;
             let relevancePrompt = basePrompt + '\n' + promptValues.relevancePrompt;
             //console.log("Relevance Prompt: " + relevancePrompt);
+            console.log("modelID Relevance: " + modelID);
             if (modelID == googleGemma2b) { relevanceResponse = await getGemmaResponse(relevancePrompt); }
             else if (modelID == stabilityAi2b) { relevanceResponse = await getStableResponse(relevancePrompt); }
             else if(modelID == tinyLlama){ relevanceResponse = await getTinyResponse(relevancePrompt);}
@@ -1455,6 +1468,7 @@ async function createPrompts() {
             let toxicResponse;
             let toxicPrompt = basePrompt +'\n' + promptValues.toxicityPrompt;
             //console.log("Toxic Prompt:" + toxicPrompt);
+            console.log("modelID Toxic: " + modelID);
             if (modelID == googleGemma2b) { toxicResponse = await getGemmaResponse(toxicPrompt); }
             else if (modelID == stabilityAi2b) { toxicResponse = await getStableResponse(toxicPrompt); }
             else if(modelID == tinyLlama){toxicResponse = await getTinyResponse(toxicPrompt);}
@@ -1467,6 +1481,7 @@ async function createPrompts() {
             let reformResponse;
             let reformPrompt = basePrompt + '\n' +promptValues.reformPrompt;
             //console.log("reform Prompt:" + reformPrompt);
+            console.log("modelID Reform: " + modelID);
             if (modelID == googleGemma2b) { reformResponse = await getGemmaResponse(reformPrompt); }
             else if (modelID == stabilityAi2b) { reformResponse = await getStableResponse(reformPrompt); }
             else if(modelID == tinyLlama){reformResponse = await getTinyResponse(reformPrompt);}
@@ -1583,8 +1598,7 @@ async function getGemmaResponse(prompt) {
         })
     });
     const responseData = await response.json();
-    //GEMMA always sends the prompt + Reply
-    return responseData.result.split(prompt).pop().trim();
+    return responseData.result.split(prompt).pop().trim().replace('<eos>', '');
 }
 
 //Function Used To call stabilityai
@@ -1600,10 +1614,7 @@ async function getStableResponse(prompt) {
         })
     });
     const responseData = await response.json();
-    const trimmedResponse = responseData.result.split(prompt).pop().trim();
-    console.log("responseData: " + responseData);
-    console.log("Trimmed Response: " + trimmedResponse);
-    return trimmedResponse
+    return  responseData.result.split(prompt).pop().trim().replace('<|im_end|>', '').replace('<|endoftext|>', '');
 }
 async function getTinyResponse(prompt) {
     const response = await fetch(url + "generate-response-TinyLlama", {
@@ -1618,7 +1629,7 @@ async function getTinyResponse(prompt) {
     });
     const responseData = await response.json();
     // Assuming the relevant content is after the last '</s>'
-    let answer = responseData.result.split("</s>").pop().trim();
+    let answer = responseData.result.split("</s>").pop().trim().replace('<|assistant|>', '');
     return answer;
 }
 
