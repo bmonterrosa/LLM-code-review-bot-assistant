@@ -280,13 +280,17 @@ function createResponseSectionStructure() {
     }
 }
 
-async function fillResponseSection() {
+async function fillResponseSection(promptsResponses) {
 
+    
     // Toxicity
     const toxicityTextarea = document.getElementById('toxicity_response_area');
     if (toxicityTextarea) {
         const toxicState = await getToggleState('toggleToxicity');
         if (toxicState === 'checked') {
+            let toxicityResponse = promptsResponses.get("Toxicity");
+            console.log("toxictyResponse: "+ toxicityResponse);
+            toxicityTextarea.value = toxicityResponse;
             toxicityTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
             const toxicityTitle = toxicityTextarea.previousElementSibling;
             if (toxicityTitle) {
@@ -305,8 +309,9 @@ async function fillResponseSection() {
     // relevance
     const relevanceTextarea = document.getElementById('relevance_response_area');
     if (relevanceTextarea) {
-        const toxicState = await getToggleState('toggleRelevance');
-        if (toxicState === 'checked') {
+        const relevanceState = await getToggleState('toggleRelevance');
+        if (relevanceState === 'checked') {
+            relevanceTextarea.value = promptsResponses.get("Relevance");
             relevanceTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
             const relevanceTitle = relevanceTextarea.previousElementSibling;
             if (relevanceTitle) {
@@ -327,6 +332,7 @@ async function fillResponseSection() {
     if (reformTextarea) {
         const reformState = await getToggleState('toggleReform');
         if (reformState === 'checked') {
+            reformTextarea.value = promptsResponses.get("Reformulation");
             reformTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
             const reformTitle = reformTextarea.previousElementSibling;
             if (reformTitle) {
@@ -401,41 +407,9 @@ function createRequestSectionStructure() {
             request_modal.setAttribute("style", "display: none;");
 
             //TODO: ARMANDO: Add send request behaviour here
-            //Call new function HERE but keep old commented
-            try {
-            let resBox = document.getElementById("llm-response");
-
-            //Add a buffering effect to the response box
-            let dotCount = 0;
-            const maxDots = 3;
-            const interval = 500;
-
-            const intervalId = setInterval(() => {
-                dotCount = (dotCount + 1) % (maxDots + 1);
-                resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
-            }, interval);
-
-                let promptsResponses = await createPrompts();
-                console.log('TODO promptsResponses below');
-                console.log(promptsResponses);
-                clearInterval(intervalId); // Stop the buffering effect
-                // Process and display the responses
-                resBox.value = promptsResponses.join('\n');
-
-                // Send the result to the background page or wherever it's needed
-                chrome.runtime.sendMessage({
-                    from: 'popup',
-                    subject: 'llmResponse',
-                    response: promptsResponses
-                });
-            } catch (error) {
-                console.error(error);
-                clearInterval(intervalId);
-                resBox.value = "Error: Could not get a response.";
-            }
-
+            let promptsResponses = await createPrompts();
             const response_modal = document.getElementById('response-modal');
-            fillResponseSection();
+            fillResponseSection(promptsResponses);
             response_modal.setAttribute("style", "display: block;");
         };
         modalContent.appendChild(sendButton);
@@ -610,39 +584,6 @@ function attachIconEvent(icon) {
         var popup = document.getElementById('popup-llm');
         if (popup.style.display === 'none') {
             popup.style.display = 'flex';
-            // let resBox = document.getElementById("llm-response");
-
-            // //Add a buffering effect to the response box
-            // let dotCount = 0;
-            // const maxDots = 3;
-            // const interval = 500;
-
-            // const intervalId = setInterval(() => {
-            //     dotCount = (dotCount + 1) % (maxDots + 1);
-            //     resBox.value = "Waiting for LLM response " + ".".repeat(dotCount);
-            // }, interval);
-
-            //Call new function HERE but keep old commented
-            // try {
-            //     let promptsResponses = await createPrompts();
-
-            //     console.log('promptsResponses below');
-            //     console.log(promptsResponses);
-            //     clearInterval(intervalId); // Stop the buffering effect
-            //     // Process and display the responses
-            //     resBox.value = promptsResponses.join('\n');
-
-            //     // Send the result to the background page or wherever it's needed
-            //     chrome.runtime.sendMessage({
-            //         from: 'popup',
-            //         subject: 'llmResponse',
-            //         response: promptsResponses
-            //     });
-            // } catch (error) {
-            //     console.error(error);
-            //     clearInterval(intervalId);
-            //     resBox.value = "Error: Could not get a response.";
-            // }
         } else {
             popup.style.display = 'none';
         }
@@ -982,15 +923,16 @@ async function addEventLoadLLM() {
         var selectedValue = document.getElementById("llm_selected").value;
 
         alert("Changing LLM please wait... look at console to see when llm is saved")
+        chrome.storage.sync.set({ "selectedLlmId": selectedValue }, function () {
+            console.log('The LLM ID has been saved.');
+        });
         try {
             // Make a GET request to FastAPI server
             const response = await fetch(url + `changeLLM/?data=${selectedValue}`);
             //const response = await fetch(`http://127.0.0.1/premierdem`)
             const data = await response.json()
             alert('LLM loaded sucessfully');
-            chrome.storage.sync.set({ "selectedLlmId": selectedValue }, function () {
-                console.log('The LLM ID has been saved.');
-            });
+
         } catch (error) {
             console.error('Error:', error)
             alert('Error:', error)
@@ -1439,7 +1381,8 @@ async function getAllFileContent() {
 
 // ----------  PROMPT FUNCTION WHEN BUTTON CLICKED ---------- 
 async function createPrompts() {
-    let promptsResponsesArray = [];
+    //let promptsResponsesArray = [];
+    let promptsResponsesMap = new Map();
     let pendingComment = getCurrentComment();
     console.log("Entering Prompt Creation...");
     console.log("PendingComments: " + pendingComment);
@@ -1488,6 +1431,7 @@ async function createPrompts() {
         chrome.storage.sync.get("selectedLlmId", function (data) {
             modelID = data.selectedLlmId;
         });
+        console.log("modelID: " + modelID);
 
         let basePrompt = promptValues.generalPrompt;
         if (codeState === 'checked') {basePrompt += promptValues.filePrompt;}
@@ -1496,62 +1440,55 @@ async function createPrompts() {
         // Relevance
         if (relevanceState === 'checked') {
             let relevanceResponse;
-
-            //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createRelevancePrompt();
-            //ELSE SET relevancePrompt WITH PROMPT FROM USER
-            let relevancePrompt = basePrompt + promptValues.relevancePrompt;
+            let relevancePrompt = basePrompt + '\n' + promptValues.relevancePrompt;
             //console.log("Relevance Prompt: " + relevancePrompt);
             if (modelID == googleGemma2b) { relevanceResponse = await getGemmaResponse(relevancePrompt); }
             else if (modelID == stabilityAi2b) { relevanceResponse = await getStableResponse(relevancePrompt); }
             else if(modelID == tinyLlama){ relevanceResponse = await getTinyResponse(relevancePrompt);}
             else { relevanceResponse = await getDefaultLlmResponse(relevancePrompt); }
-            promptsResponsesArray.push("Relevance: " + relevanceResponse);
+            //promptsResponsesArray.push("Relevance: " + relevanceResponse);
+            promptsResponsesMap.set("Relevance", relevanceResponse);
+
         }
         // Toxicity
         if (toxicState === 'checked') {
             let toxicResponse;
-
-            //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createToxicityPrompt();
-            //ELSE SET toxicPrompt WITH PROMPT FROM USER
-
-            let toxicPrompt = basePrompt + promptValues.toxicityPrompt;
+            let toxicPrompt = basePrompt +'\n' + promptValues.toxicityPrompt;
             //console.log("Toxic Prompt:" + toxicPrompt);
             if (modelID == googleGemma2b) { toxicResponse = await getGemmaResponse(toxicPrompt); }
             else if (modelID == stabilityAi2b) { toxicResponse = await getStableResponse(toxicPrompt); }
             else if(modelID == tinyLlama){toxicResponse = await getTinyResponse(toxicPrompt);}
             else { toxicResponse = await getDefaultLlmResponse(toxicPrompt); }
-            promptsResponsesArray.push("Toxicity: " + toxicResponse);
+            //promptsResponsesArray.push("Toxicity: " + toxicResponse);
+            promptsResponsesMap.set("Toxicity", toxicResponse);
         }
         // Reformulation
         if (reformState === 'checked') {
             let reformResponse;
-
-            //TODO: CHECK IF CUSTOM PROMPTS WERE USED IF NOT USE DEFAULT FUNCTION createReformPrompt();
-            //ELSE SET reformPrompt WITH PROMPT FROM USER
-
-            let reformPrompt = basePrompt + promptValues.reformPrompt;
+            let reformPrompt = basePrompt + '\n' +promptValues.reformPrompt;
             //console.log("reform Prompt:" + reformPrompt);
             if (modelID == googleGemma2b) { reformResponse = await getGemmaResponse(reformPrompt); }
             else if (modelID == stabilityAi2b) { reformResponse = await getStableResponse(reformPrompt); }
             else if(modelID == tinyLlama){reformResponse = await getTinyResponse(reformPrompt);}
             else { reformResponse = await getDefaultLlmResponse(reformPrompt); }
-            promptsResponsesArray.push("Reformulation: " + reformResponse);
+            //promptsResponsesArray.push("Reformulation: " + reformResponse);
+            promptsResponsesMap.set("Reformulation", reformResponse);
         }
         // Check if no prompts were toggled and add a default reply
-        if (promptsResponsesArray.length === 0) {
-            promptsResponsesArray.push("Please toggle a prompt setting.");
-        }
+        // if (promptsResponsesArray.length === 0) {
+        //     promptsResponsesArray.push("Please toggle a prompt setting.");
+        // }
 
         // End timer
         let endTime = performance.now();
         let timeTaken = endTime - startTime;
-        promptsResponsesArray.push(`Time taken: ${timeTaken.toFixed(2)} ms`);
+        //promptsResponsesArray.push(`Time taken: ${timeTaken.toFixed(2)} ms`);
     } else {
         console.log("No comment in text area");
-        promptsResponsesArray.push("Please write a comment in the text area.");
+        //promptsResponsesArray.push("Please write a comment in the text area.");
     }
-    console.log("ResponseArray: " + promptsResponsesArray);
-    return promptsResponsesArray;
+    //console.log("ResponseArray: " + promptsResponsesArray);
+    return promptsResponsesMap;
 }
 
 // ----------  PROMPTS GENERATION ----------
@@ -1611,7 +1548,7 @@ async function getReviewPrompt() {
 
 function getToxicityPrompt() {
     let pendingComment = getCurrentComment();
-    let toxicityPrompt = "Here is the pending reply: " + pendingComment;
+    let toxicityPrompt = "Here is the pending reply: " + pendingComment+'\n';
     toxicityPrompt += "Now as the helper bot, can you tell If the pending reply toxic? Your answer must be 2 sentences maximum and direct.";
     return toxicityPrompt;
 }
@@ -1619,14 +1556,14 @@ function getToxicityPrompt() {
 //Returns the Relevancy/Pertinance prompt
  function getRelevancePrompt() {
     let pendingComment = getCurrentComment();
-    let relevancePrompt = "Here is the pending reply: " + pendingComment;
+    let relevancePrompt = "Here is the pending reply: " + pendingComment+'\n';
     relevancePrompt += "Now as the helper bot, can you tell If the pending reply relevant? Your answer must be 2 sentences maximum and direct.";
     return relevancePrompt;
 }
 //Return the reform prompt
  function getReformPrompt() {
     let pendingComment = getCurrentComment();
-    let reformPrompt = "Here is the pending reply: " + pendingComment;
+    let reformPrompt = "Here is the pending reply: " + pendingComment +'\n';
     reformPrompt += "Now as the helper bot, Reformulate the pending reply in a professional way. Your answer must be 2 sentences maximum and direct.";
     return reformPrompt;
 }
@@ -1663,7 +1600,10 @@ async function getStableResponse(prompt) {
         })
     });
     const responseData = await response.json();
-    return responseData.result.split(prompt).pop().trim();
+    const trimmedResponse = responseData.result.split(prompt).pop().trim();
+    console.log("responseData: " + responseData);
+    console.log("Trimmed Response: " + trimmedResponse);
+    return trimmedResponse
 }
 async function getTinyResponse(prompt) {
     const response = await fetch(url + "generate-response-TinyLlama", {
@@ -1679,9 +1619,6 @@ async function getTinyResponse(prompt) {
     const responseData = await response.json();
     // Assuming the relevant content is after the last '</s>'
     let answer = responseData.result.split("</s>").pop().trim();
-    
-    // If you need further cleanup based on the format of the response, adjust the logic here
-    
     return answer;
 }
 
