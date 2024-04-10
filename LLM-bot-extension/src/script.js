@@ -32,6 +32,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 document.getElementById('content').style.display = 'block';
                 updateHuggingFaceTokenIcon();
                 updateGitHubTokenIcon();
+                updateLoadLLMIcon();
+                updateSelectedLLMInDropdown();
             } else {
                 document.getElementById('message').style.display = 'block';
             }
@@ -85,6 +87,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
     if (request.action === "updateIconOnTabChange") {
         updateIconVisibility();
         sendResponse({ result: "UpdatedIcon" });
+
     }
 
     return true;
@@ -282,14 +285,14 @@ function createResponseSectionStructure() {
 
 async function fillResponseSection(promptsResponses) {
 
-    
+
     // Toxicity
     const toxicityTextarea = document.getElementById('toxicity_response_area');
     if (toxicityTextarea) {
         const toxicState = await getToggleState('toggleToxicity');
         if (toxicState === 'checked') {
             let toxicityResponse = promptsResponses.get("Toxicity");
-            console.log("toxictyResponse: "+ toxicityResponse);
+            console.log("toxictyResponse: " + toxicityResponse);
             toxicityTextarea.value = toxicityResponse;
             toxicityTextarea.setAttribute("style", "display: block; width: 100%;"); // Show the textarea
             const toxicityTitle = toxicityTextarea.previousElementSibling;
@@ -405,9 +408,12 @@ function createRequestSectionStructure() {
         sendButton.onclick = async function () {
             const request_modal = document.getElementById('request-modal');
             request_modal.setAttribute("style", "display: none;");
-
-            //TODO: ARMANDO: Add send request behaviour here
+            commentForm.innerHTML += '<div id="loading-response-icon">Sending request to LLM... ⏳</div>';
             let promptsResponses = await createPrompts();
+            const loadingIcon = document.getElementById('loading-response-icon')
+            if (loadingIcon) {
+                loadingIcon.remove();
+            }
             const response_modal = document.getElementById('response-modal');
             fillResponseSection(promptsResponses);
             response_modal.setAttribute("style", "display: block;");
@@ -436,7 +442,7 @@ async function fillRequestSection() {
 
     const generalPromptTextarea = document.getElementById('general-prompt_prompt_area');
     if (generalPromptTextarea) {
-        let basePrompt = await getBasePrompt(); 
+        let basePrompt = await getBasePrompt();
         // Set the textarea content
         generalPromptTextarea.value = basePrompt;
         generalPromptTextarea.setAttribute("style", "display: block; width: 100%;");
@@ -572,21 +578,7 @@ function attachIconEvent(icon) {
         const response_modal = document.getElementById('response-modal');
         response_modal.setAttribute("style", "display: none;");
         fillRequestSection();
-
-
-
-        chrome.runtime.sendMessage({
-            from: 'popup',
-            subject: 'llmResponse',
-            response: "No response to display"
-        });
         event.stopPropagation();
-        var popup = document.getElementById('popup-llm');
-        if (popup.style.display === 'none') {
-            popup.style.display = 'flex';
-        } else {
-            popup.style.display = 'none';
-        }
         updateIconVisibility();
     };
 }
@@ -918,25 +910,85 @@ function initializeLlmDropdown() {
     });
 }
 
-async function addEventLoadLLM() {
-    document.getElementById("llm_change_button").addEventListener("click", async function () {
-        var selectedValue = document.getElementById("llm_selected").value;
+function updateSelectedLLMInDropdown() {
+    const llmDropdown = document.getElementById('llm_selected');
+    chrome.storage.sync.get('selectedLlmId', function (result) {
+        const selectedLlmId = result.selectedLlmId;
+        if (selectedLlmId) {
+            llmDropdown.value = selectedLlmId;
+        }
+    });
+}
 
-        alert("Changing LLM please wait... look at console to see when llm is saved")
-        chrome.storage.sync.set({ "selectedLlmId": selectedValue }, function () {
-            console.log('The LLM ID has been saved.');
+async function addEventLoadLLM() {
+    const button = document.getElementById("llm_change_button");
+    button.addEventListener("click", async function () {
+        const selectedValue = document.getElementById("llm_selected").value;
+        
+        chrome.runtime.sendMessage({
+            from: 'popup',
+            subject: 'setLLMId',
+            id: selectedValue
         });
+
+        await setLoadLLMStatus('loading')
+
         try {
             // Make a GET request to FastAPI server
             const response = await fetch(url + `changeLLM/?data=${selectedValue}`);
-            //const response = await fetch(`http://127.0.0.1/premierdem`)
             const data = await response.json()
-            alert('LLM loaded sucessfully');
+            // Replace loading icon with success message
+            await setLoadLLMStatus('success')
 
         } catch (error) {
             console.error('Error:', error)
+            // Replace loading icon with error message
+            await setLoadLLMStatus('error')
             alert('Error:', error)
         }
+    });
+}
+
+async function setLoadLLMStatus(status) {
+    // Save the token to chrome.storage
+    await chrome.runtime.sendMessage({
+        from: 'popup',
+        subject: 'setLLMStatus',
+        status: status
+    });
+    const loadingIcon = document.getElementById("load-llm-icon");
+    if (status && loadingIcon) {
+        if (status === 'loading') {
+            loadingIcon.textContent = '⏳';
+        }
+        if (status === 'success') {
+            loadingIcon.textContent = '✅';
+        }
+        if (status === 'error') {
+            loadingIcon.textContent = '❌';
+        }
+    }
+}
+
+function updateLoadLLMIcon() {
+    return new Promise((resolve, reject) => {
+        chrome.storage.sync.get('LLMstatus', function (result) {
+            const loadingIcon = document.getElementById("load-llm-icon");
+            if (result.LLMstatus && loadingIcon) {
+                if (result.LLMstatus === 'loading') {
+                    loadingIcon.textContent = '⏳';
+                }
+                if (result.LLMstatus === 'success') {
+                    loadingIcon.textContent = '✅';
+                }
+                if (result.LLMstatus === 'error') {
+                    loadingIcon.textContent = '❌';
+                }
+                resolve(result.LLMstatus)
+            }
+            console.log('No LLM loading status found');
+            resolve(null); // Resolve with null if LLM status is not found
+        });
     });
 }
 
@@ -954,13 +1006,16 @@ function addEventDeleteLLM() {
                 select.removeChild(select.options[select.selectedIndex]);
 
                 // Update Chrome storage
-                chrome.storage.sync.get({ customLlms: [] }, function (result) {
-                    const filteredCustomLlms = result.customLlms.filter(llm => llm !== selectedValue);
-                    chrome.storage.sync.set({ customLlms: filteredCustomLlms }, function () {
-                        console.log('Custom LLM removed:', selectedValue);
-                        alert('Custom LLM removed');
+                return new Promise((resolve, reject) => {
+                    chrome.storage.sync.get({ customLlms: [] }, function (result) {
+                        const filteredCustomLlms = result.customLlms.filter(llm => llm !== selectedValue);
+                        chrome.storage.sync.set({ customLlms: filteredCustomLlms }, function () {
+                            console.log('Custom LLM removed:', selectedValue);
+                            alert('Custom LLM removed');
+                        });
                     });
-                });
+                    resolve(result.customLlms)
+                })
             } catch (error) {
                 console.error('Error:', error);
             }
@@ -1146,17 +1201,21 @@ function setHuggingFaceToken(userToken) {
 }
 
 function updateHuggingFaceTokenIcon() {
-    chrome.storage.sync.get('huggingFaceToken', function (result) {
-        if (result.huggingFaceToken) {
-            // Token found, display green check
-            document.getElementById('hugging_face_icon').textContent = '✅'; // Replace with your icon for success
-            document.getElementById('hugging_face_icon').className = 'icon-success';
-        } else {
-            // Token not found, display red X
-            document.getElementById('hugging_face_icon').textContent = '❌'; // Replace with your icon for failure
-            document.getElementById('hugging_face_icon').className = 'icon-fail';
-        }
-    });
+    return new Promise((resolve, reject) => {
+        chrome.storage.sync.get('huggingFaceToken', function (result) {
+            if (result.huggingFaceToken) {
+                // Token found, display green check
+                document.getElementById('hugging_face_icon').textContent = '✅'; // Replace with your icon for success
+                document.getElementById('hugging_face_icon').className = 'icon-success';
+                resolve(result.huggingFaceToken)
+            } else {
+                // Token not found, display red X
+                document.getElementById('hugging_face_icon').textContent = '❌'; // Replace with your icon for failure
+                document.getElementById('hugging_face_icon').className = 'icon-fail';
+                resolve(null)
+            }
+        });
+    })
 }
 
 
@@ -1221,6 +1280,7 @@ function updateGitHubTokenIcon() {
 
 
 function loadGitHubToken() {
+    
     return new Promise((resolve, reject) => {
         chrome.storage.sync.get('githubToken', function (result) {
             if (result.githubToken) {
@@ -1343,7 +1403,7 @@ async function getPullRequestFiles() {
 function getAllPullRequestComments() {
     return getPullRequestComments().then(comments => {
         if (comments) {
-           
+
             return comments;
         }
         return [];
@@ -1382,15 +1442,15 @@ async function getAllFileContent() {
 // This function converts chrome.storage.sync.get into a promise
 function getModelID() {
     return new Promise((resolve, reject) => {
-      chrome.storage.sync.get("selectedLlmId", function (data) {
-        if (chrome.runtime.lastError) {
-          return reject(new Error(chrome.runtime.lastError));
-        }
-        resolve(data.selectedLlmId);
-      });
+        chrome.storage.sync.get("selectedLlmId", function (data) {
+            if (chrome.runtime.lastError) {
+                return reject(new Error(chrome.runtime.lastError));
+            }
+            resolve(data.selectedLlmId);
+        });
     });
-  }
-  
+}
+
 // ----------  PROMPT FUNCTION WHEN BUTTON CLICKED ---------- 
 async function createPrompts() {
     //let promptsResponsesArray = [];
@@ -1409,30 +1469,30 @@ async function createPrompts() {
             relevancePrompt: '',
             reformPrompt: ''
         };
-    
+
         // General Prompt
         const generalPromptTextarea = document.getElementById('general-prompt_prompt_area');
-        if (generalPromptTextarea) {promptValues.generalPrompt = generalPromptTextarea.value;}
-    
+        if (generalPromptTextarea) { promptValues.generalPrompt = generalPromptTextarea.value; }
+
         // Files Prompt
         const filesTextarea = document.getElementById('files_prompt_area');
-        if (filesTextarea) {promptValues.filePrompt = filesTextarea.value;}
-    
+        if (filesTextarea) { promptValues.filePrompt = filesTextarea.value; }
+
         // Reviews Prompt
         const reviewsTextarea = document.getElementById('reviews_prompt_area');
-        if (reviewsTextarea) {promptValues.reviewPrompt = reviewsTextarea.value;}
-    
+        if (reviewsTextarea) { promptValues.reviewPrompt = reviewsTextarea.value; }
+
         // Toxicity Prompt
         const toxicityTextarea = document.getElementById('toxicity_prompt_area');
-        if (toxicityTextarea) {promptValues.toxicityPrompt = toxicityTextarea.value;}
-    
+        if (toxicityTextarea) { promptValues.toxicityPrompt = toxicityTextarea.value; }
+
         // Relevance Prompt
         const relevanceTextarea = document.getElementById('relevance_prompt_area');
-        if (relevanceTextarea) {promptValues.relevancePrompt = relevanceTextarea.value;}
-    
+        if (relevanceTextarea) { promptValues.relevancePrompt = relevanceTextarea.value; }
+
         // Reformulation Prompt
         const reformTextarea = document.getElementById('reformulation_prompt_area');
-        if (reformTextarea) {promptValues.reformPrompt = reformTextarea.value;}
+        if (reformTextarea) { promptValues.reformPrompt = reformTextarea.value; }
 
         let relevanceState = await getToggleState('toggleRelevance');
         let toxicState = await getToggleState('toggleToxicity');
@@ -1446,8 +1506,8 @@ async function createPrompts() {
         console.log("modelID: " + modelID);
 
         let basePrompt = promptValues.generalPrompt;
-        if (codeState === 'checked') {basePrompt += promptValues.filePrompt;}
-        if (reviewState === 'checked') {basePrompt += promptValues.reviewPrompt;}
+        if (codeState === 'checked') { basePrompt += promptValues.filePrompt; }
+        if (reviewState === 'checked') { basePrompt += promptValues.reviewPrompt; }
 
         // Relevance
         if (relevanceState === 'checked') {
@@ -1457,7 +1517,7 @@ async function createPrompts() {
             console.log("modelID Relevance: " + modelID);
             if (modelID == googleGemma2b) { relevanceResponse = await getGemmaResponse(relevancePrompt); }
             else if (modelID == stabilityAi2b) { relevanceResponse = await getStableResponse(relevancePrompt); }
-            else if(modelID == tinyLlama){ relevanceResponse = await getTinyResponse(relevancePrompt);}
+            else if (modelID == tinyLlama) { relevanceResponse = await getTinyResponse(relevancePrompt); }
             else { relevanceResponse = await getDefaultLlmResponse(relevancePrompt); }
             //promptsResponsesArray.push("Relevance: " + relevanceResponse);
             promptsResponsesMap.set("Relevance", relevanceResponse);
@@ -1466,12 +1526,12 @@ async function createPrompts() {
         // Toxicity
         if (toxicState === 'checked') {
             let toxicResponse;
-            let toxicPrompt = basePrompt +'\n' + promptValues.toxicityPrompt;
+            let toxicPrompt = basePrompt + '\n' + promptValues.toxicityPrompt;
             //console.log("Toxic Prompt:" + toxicPrompt);
             console.log("modelID Toxic: " + modelID);
             if (modelID == googleGemma2b) { toxicResponse = await getGemmaResponse(toxicPrompt); }
             else if (modelID == stabilityAi2b) { toxicResponse = await getStableResponse(toxicPrompt); }
-            else if(modelID == tinyLlama){toxicResponse = await getTinyResponse(toxicPrompt);}
+            else if (modelID == tinyLlama) { toxicResponse = await getTinyResponse(toxicPrompt); }
             else { toxicResponse = await getDefaultLlmResponse(toxicPrompt); }
             //promptsResponsesArray.push("Toxicity: " + toxicResponse);
             promptsResponsesMap.set("Toxicity", toxicResponse);
@@ -1479,12 +1539,12 @@ async function createPrompts() {
         // Reformulation
         if (reformState === 'checked') {
             let reformResponse;
-            let reformPrompt = basePrompt + '\n' +promptValues.reformPrompt;
+            let reformPrompt = basePrompt + '\n' + promptValues.reformPrompt;
             //console.log("reform Prompt:" + reformPrompt);
             console.log("modelID Reform: " + modelID);
             if (modelID == googleGemma2b) { reformResponse = await getGemmaResponse(reformPrompt); }
             else if (modelID == stabilityAi2b) { reformResponse = await getStableResponse(reformPrompt); }
-            else if(modelID == tinyLlama){reformResponse = await getTinyResponse(reformPrompt);}
+            else if (modelID == tinyLlama) { reformResponse = await getTinyResponse(reformPrompt); }
             else { reformResponse = await getDefaultLlmResponse(reformPrompt); }
             //promptsResponsesArray.push("Reformulation: " + reformResponse);
             promptsResponsesMap.set("Reformulation", reformResponse);
@@ -1518,7 +1578,7 @@ async function getBasePrompt() {
             basePrompt += comment;
         });
     }
-    else{
+    else {
         basePrompt += "No comments were made on this pull request.";
     }
     return basePrompt;
@@ -1563,22 +1623,22 @@ async function getReviewPrompt() {
 
 function getToxicityPrompt() {
     let pendingComment = getCurrentComment();
-    let toxicityPrompt = "Here is the pending reply: " + pendingComment+'\n';
+    let toxicityPrompt = "Here is the pending reply: " + pendingComment + '\n';
     toxicityPrompt += "Now as the helper bot, can you tell If the pending reply toxic? Your answer must be 2 sentences maximum and direct.";
     return toxicityPrompt;
 }
 
 //Returns the Relevancy/Pertinance prompt
- function getRelevancePrompt() {
+function getRelevancePrompt() {
     let pendingComment = getCurrentComment();
-    let relevancePrompt = "Here is the pending reply: " + pendingComment+'\n';
+    let relevancePrompt = "Here is the pending reply: " + pendingComment + '\n';
     relevancePrompt += "Now as the helper bot, can you tell If the pending reply relevant? Your answer must be 2 sentences maximum and direct.";
     return relevancePrompt;
 }
 //Return the reform prompt
- function getReformPrompt() {
+function getReformPrompt() {
     let pendingComment = getCurrentComment();
-    let reformPrompt = "Here is the pending reply: " + pendingComment +'\n';
+    let reformPrompt = "Here is the pending reply: " + pendingComment + '\n';
     reformPrompt += "Now as the helper bot, Reformulate the pending reply in a professional way. Your answer must be 2 sentences maximum and direct.";
     return reformPrompt;
 }
@@ -1614,7 +1674,7 @@ async function getStableResponse(prompt) {
         })
     });
     const responseData = await response.json();
-    return  responseData.result.split(prompt).pop().trim().replace('<|im_end|>', '').replace('<|endoftext|>', '');
+    return responseData.result.split(prompt).pop().trim().replace('<|im_end|>', '').replace('<|endoftext|>', '');
 }
 async function getTinyResponse(prompt) {
     const response = await fetch(url + "generate-response-TinyLlama", {
