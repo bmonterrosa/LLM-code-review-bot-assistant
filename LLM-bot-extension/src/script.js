@@ -1484,8 +1484,10 @@ async function createPrompts() {
         let reformState = await getToggleState("toggleReform");
         let codeState = await getToggleState('toggleCode');
         let reviewState = await getToggleState('reviewCode');
-        let modelID = await chrome.storage.sync.get("selectedLlmId");
-        console.log("Model_ID used= " + modelID);
+        let modelID
+        chrome.storage.sync.get("selectedLlmId", function (data) {
+            modelID = data.selectedLlmId;
+        });
 
         let basePrompt = promptValues.generalPrompt;
         if (codeState === 'checked') {basePrompt += promptValues.filePrompt;}
