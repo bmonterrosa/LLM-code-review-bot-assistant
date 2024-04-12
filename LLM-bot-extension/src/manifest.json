@@ -25,11 +25,11 @@
         "extension_pages": "script-src 'self'; object-src 'self'; script-src-elem 'self' 'unsafe-inline' https://localhost/;"
     },
     "icons": {
-        "16": "icon/LLM-bot-NoBackground.png"
+        "16": "icon/logo-nath.png"
     },
     "web_accessible_resources": [
         {
-            "resources": ["icon/LLM-bot-NoBackground.png"],
+            "resources": ["icon/logo-nath-48.png"],
             "matches": ["<all_urls>"]
         }
     ]

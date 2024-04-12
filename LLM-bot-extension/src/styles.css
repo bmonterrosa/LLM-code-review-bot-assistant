@@ -3,7 +3,7 @@ body{
     padding: 20px;
     background-color: #131921;
     color: white;
-    width:350px;
+    width:500px;
 }
 /*Suggestion Section*/
 .suggestion_container{
@@ -67,16 +67,6 @@ button{
     display: inline-block;
     border-radius: 4px;
     cursor: pointer;
-}
-
-.tabcontent{
-    margin: 5px;
-}
-
-.tablinks{
-    width: 40%;
-    margin: 5px;
-    flex:1;
 }
 
 .tab {

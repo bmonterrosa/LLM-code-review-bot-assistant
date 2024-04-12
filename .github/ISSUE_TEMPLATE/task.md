@@ -2,8 +2,8 @@
 name: Task
 about: Describe the task at hand
 title: "[TASK]"
-labels: ["task"]
-assignees: ""
+labels: ''
+assignees: ''
 
 ---
 

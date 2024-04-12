@@ -9,7 +9,8 @@ COPY ./requirements.txt /code/requirements.txt
 
 #
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
-RUN pip install git+https://github.com/huggingface/transformers.git@main accelerate
+RUN pip install pip -q install git+https://github.com/huggingface/transformers.git accelerate
+RUN pip install huggingface_hub
 
 #
 COPY ./LLM-bot-extension/src /code/app
