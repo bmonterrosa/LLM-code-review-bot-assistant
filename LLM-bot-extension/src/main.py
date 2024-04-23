@@ -1,12 +1,10 @@
 from fastapi import HTTPException
-from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig, GPTNeoForCausalLM, GPT2Tokenizer, pipeline
 
 from torch import cuda
-from accelerate import disk_offload
 from huggingface_hub import snapshot_download
 
 from uuid import uuid4
@@ -16,7 +14,6 @@ import time
 import logging
 import os.path
 import torch
-import subprocess
 
 hugging_face_token = os.getenv('HUGGING_FACE_TOKEN')
 
@@ -89,6 +86,7 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
         logger.info("The " + model_id + " model is already loaded.")
 
 
+
 # This line loads a default LLM on server startup
 # get_model_and_tokenizer(model_id, auto_model, auto_tokenizer)
 
@@ -97,6 +95,7 @@ def get_model_and_tokenizer(model_id, auto_model, auto_tokenizer):
 def test_read_root():
     return {"Hello": "World"}
 
+
 @app.get("/setHuggingFaceToken/")
 async def setToken(data: str):
     logger.info("Setting token...")
@@ -104,83 +103,13 @@ async def setToken(data: str):
     hugging_face_token = data
     print(device)
 
+
 @app.get("/changeLLM/")
 async def changeLLM(data: str):
     logger.info("Changing LLM please wait...")
     get_model_and_tokenizer(data, AutoModelForCausalLM, AutoTokenizer)
     print(device)
-
-@app.get("/premierdem")
-def premier_demarrage():
-    model_id = "stabilityai/stablelm-3b-4e1t"
-    get_model_and_tokenizer(model_id, AutoModelForCausalLM, AutoTokenizer)
-    print(device)
-    return {"Page": "Premier demarrage"}
-
-
-@app.get("/connexion")
-def create_session():
-    session = uuid4()
-    global historique
-
-    # historique[session] = list[tuple[str, str]]
-
-    return {"id": session}
-
-
-@app.get("/deconnexion")
-def deconnexion():
-    print('deconnexion')
-
-
-@app.post("/generate")
-def generate(request: PromtRequest):
-    start_time = time.time()
-    prompt = f"<s>[INST] {request.promt.strip()} [/INST]"
-    inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=False).to(device)
-
-    output = model.generate(
-        **inputs,
-        max_new_tokens=500,
-        # eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
-    )
-    output = output[0].to(device)
-
-    print(tokenizer.decode(output))
-    print('--- %s secondes ---' % (time.time() - start_time))
-    return {"result": tokenizer.decode(output)}
-
-
-@app.get("/gen")
-def test_generate():
-    start_time = time.time()
-    user = """
-    Here is an example of python code:
-
-    "
-    def op_sum(x,y):
-    	return 'Hello'
-    "
-
-    Here is a comment made for this code:
-
-    "The function does not return an addition."
-
-    Is this a relevant and respectful review comment for this code?
-    """
-    prompt = user.strip()
-    inputs = tokenizer(prompt, return_tensors="pt", add_special_tokens=True).to(device)
-
-    output = model.generate(
-        **inputs,
-        max_new_tokens=200,
-        eos_token_id=int(tokenizer.convert_tokens_to_ids('.'))
-    )
-    output = output[0].to(device)
-
-    print(tokenizer.decode(output))
-    print('--- %s secondes ---' % (time.time() - start_time))
-    return {"result": tokenizer.decode(output)}
+    
 
 @app.get("/testsave")
 def test_save():
