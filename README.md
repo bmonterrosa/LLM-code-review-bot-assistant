@@ -27,7 +27,7 @@ Lorsque le conteneur est en exécution, il faut tout d'abord charger un LLM, ce 
 
 Pour l'instant, il faut charger l'extension du projet lui-même, en suivant les étapes suivantes :
 - Sur google chrome, aller dans Extensions> Manage extensions
-- activer le Developer mode, en haut à droite de l'écran
+- Activer le Developer mode, en haut à droite de l'écran
 - Cliquer sur load unpacked, en haut à gauche de l'écran
 - Naviguer jusque dans le dossier src du projet et sélectionner ce dossier
 - Rafraichir l'extension pour faire bonne mesure
